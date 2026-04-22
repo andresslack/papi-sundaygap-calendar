@@ -58,6 +58,13 @@
     <script type="text/babel">
         const { useState, useEffect } = React;
 
+        const PALETTE = [
+          '#F38181', '#FF6B9D', '#FF8C42', '#F9A825', '#FFE66D',
+          '#A8E6CF', '#48BB78', '#4ECDC4', '#4A90D9', '#667EEA',
+          '#AA96DA', '#9C27B0', '#FCBAD3', '#FFD3B6', '#E91E63',
+          '#00BCD4', '#38B2AC', '#3182CE', '#805AD5', '#718096'
+        ];
+
         function CaregiverCalendar() {
           const initialCaregivers = [
             { name: 'Alexandra', code: 'AL', color: '#AA96DA' },
@@ -75,7 +82,8 @@
           const [schedule, setSchedule] = useState({});
           const [selectedSunday, setSelectedSunday] = useState(null);
           const [showAddCaregiver, setShowAddCaregiver] = useState(false);
-          const [newCaregiver, setNewCaregiver] = useState({ name: '', code: '' });
+          const [newCaregiver, setNewCaregiver] = useState({ name: '', code: '', color: PALETTE[0] });
+          const [editingColorFor, setEditingColorFor] = useState(null);
           const [loaded, setLoaded] = useState(false);
           const [firebaseAvailable, setFirebaseAvailable] = useState(false);
 
@@ -222,15 +230,16 @@
 
           const addCaregiver = () => {
             if (!newCaregiver.name || !newCaregiver.code) return;
-            
-            // Generate a random color
-            const colors = ['#FF6B9D', '#4ECDC4', '#FFE66D', '#95E1D3', '#F38181', '#AA96DA', '#FCBAD3', '#A8E6CF', '#FFD3B6', '#F9A825', '#E91E63', '#9C27B0', '#673AB7', '#3F51B5', '#2196F3', '#00BCD4', '#009688', '#4CAF50', '#8BC34A', '#CDDC39', '#FFC107', '#FF9800', '#FF5722'];
-            const randomColor = colors[Math.floor(Math.random() * colors.length)];
-            
-            const newCaregivers = [...caregivers, { ...newCaregiver, color: randomColor }];
+            const newCaregivers = [...caregivers, { ...newCaregiver }];
             updateCaregivers(newCaregivers);
-            setNewCaregiver({ name: '', code: '' });
+            setNewCaregiver({ name: '', code: '', color: PALETTE[0] });
             setShowAddCaregiver(false);
+          };
+
+          const changeColor = (code, color) => {
+            const newCaregivers = caregivers.map(c => c.code === code ? { ...c, color } : c);
+            updateCaregivers(newCaregivers);
+            setEditingColorFor(null);
           };
 
           const deleteCaregiver = (code) => {
@@ -392,6 +401,28 @@
                         boxSizing: 'border-box'
                       }}
                     />
+                    <div style={{ marginBottom: '6px' }}>
+                      <div style={{ fontSize: '11px', fontWeight: '600', color: '#718096', marginBottom: '4px' }}>
+                        Pick a color:
+                      </div>
+                      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(10, 1fr)', gap: '3px' }}>
+                        {PALETTE.map(color => (
+                          <div
+                            key={color}
+                            onClick={() => setNewCaregiver(prev => ({ ...prev, color }))}
+                            style={{
+                              width: '20px',
+                              height: '20px',
+                              borderRadius: '4px',
+                              background: color,
+                              cursor: 'pointer',
+                              border: newCaregiver.color === color ? '2px solid #2d3748' : '2px solid transparent',
+                              boxSizing: 'border-box'
+                            }}
+                          />
+                        ))}
+                      </div>
+                    </div>
                     <button
                       onClick={addCaregiver}
                       disabled={!newCaregiver.name || !newCaregiver.code}
@@ -430,21 +461,26 @@
                           position: 'relative'
                         }}
                       >
-                        <div style={{
-                          width: '18px',
-                          height: '18px',
-                          borderRadius: '4px',
-                          background: caregiver.color,
-                          display: 'flex',
-                          alignItems: 'center',
-                          justifyContent: 'center',
-                          fontWeight: '700',
-                          fontSize: '8px',
-                          color: '#fff',
-                          marginRight: '4px',
-                          flexShrink: 0,
-                          boxShadow: '0 1px 3px rgba(0,0,0,0.15)'
-                        }}>
+                        <div
+                          title="Change color"
+                          onClick={() => setEditingColorFor(editingColorFor === caregiver.code ? null : caregiver.code)}
+                          style={{
+                            width: '18px',
+                            height: '18px',
+                            borderRadius: '4px',
+                            background: caregiver.color,
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            fontWeight: '700',
+                            fontSize: '8px',
+                            color: '#fff',
+                            marginRight: '4px',
+                            flexShrink: 0,
+                            boxShadow: '0 1px 3px rgba(0,0,0,0.15)',
+                            cursor: 'pointer'
+                          }}
+                        >
                           {caregiver.code}
                         </div>
                         <span style={{
@@ -581,6 +617,56 @@
                   </div>
                 </div>
               </div>
+
+              {/* Color Picker Modal */}
+              {editingColorFor && (
+                <div
+                  onClick={() => setEditingColorFor(null)}
+                  style={{
+                    position: 'fixed', top: 0, left: 0, right: 0, bottom: 0,
+                    background: 'rgba(0,0,0,0.5)',
+                    display: 'flex', alignItems: 'center', justifyContent: 'center',
+                    padding: '16px', zIndex: 1000
+                  }}
+                >
+                  <div
+                    onClick={(e) => e.stopPropagation()}
+                    style={{
+                      background: 'white', borderRadius: '12px', padding: '14px',
+                      boxShadow: '0 20px 60px rgba(0,0,0,0.3)', width: '200px'
+                    }}
+                  >
+                    <p style={{ margin: '0 0 10px 0', fontSize: '13px', fontWeight: '700', color: '#2d3748' }}>
+                      Change color for {caregivers.find(c => c.code === editingColorFor)?.name}
+                    </p>
+                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(5, 1fr)', gap: '5px', marginBottom: '10px' }}>
+                      {PALETTE.map(color => (
+                        <div
+                          key={color}
+                          onClick={() => changeColor(editingColorFor, color)}
+                          style={{
+                            width: '28px', height: '28px', borderRadius: '6px',
+                            background: color, cursor: 'pointer',
+                            border: caregivers.find(c => c.code === editingColorFor)?.color === color
+                              ? '3px solid #2d3748' : '3px solid transparent',
+                            boxSizing: 'border-box'
+                          }}
+                        />
+                      ))}
+                    </div>
+                    <button
+                      onClick={() => setEditingColorFor(null)}
+                      style={{
+                        width: '100%', background: '#edf2f7', color: '#2d3748',
+                        border: 'none', borderRadius: '8px', padding: '8px',
+                        fontSize: '12px', fontWeight: '600', cursor: 'pointer'
+                      }}
+                    >
+                      Cancel
+                    </button>
+                  </div>
+                </div>
+              )}
 
               {/* Assignment Modal */}
               {selectedSunday && (
