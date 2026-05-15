@@ -100,7 +100,7 @@
                 past.unshift(ps);
             }
             sundays.push(...past);
-            for (let i = 0; i < 18; i++) { const fs = new Date(cur); fs.setDate(cur.getDate() + i * 7); sundays.push(fs); }
+            for (let i = 0; i < 20; i++) { const fs = new Date(cur); fs.setDate(cur.getDate() + i * 7); sundays.push(fs); }
             return sundays;
         };
         const sundays = getSundays();
@@ -138,6 +138,7 @@
         };
         return (
             <div style={{ fontFamily: '"Quicksand", sans-serif', background: 'linear-gradient(135deg,#f5f7fa 0%,#e8ecf1 100%)', minHeight: '100vh', padding: '6px', boxSizing: 'border-box' }}>
+                {/* Header */}
                 <div style={{ background: 'linear-gradient(135deg,#667eea 0%,#764ba2 100%)', borderRadius: '8px', padding: '8px 12px', marginBottom: '6px', boxShadow: '0 3px 12px rgba(102,126,234,0.3)', color: 'white' }}>
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
                         <div>
@@ -147,50 +148,8 @@
                         <div style={{ background: 'rgba(255,255,255,0.2)', borderRadius: '4px', padding: '3px 6px', fontSize: '9px', fontWeight: '600' }}>{firebaseAvailable ? '✓ SYNCED' : 'PREVIEW'}</div>
                     </div>
                 </div>
+                {/* Calendar + Reminders */}
                 <div style={{ background: 'white', borderRadius: '8px', padding: '8px', marginBottom: '6px', boxShadow: '0 2px 4px rgba(0,0,0,0.08)' }}>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
-                        <h2 style={{ margin: 0, fontSize: '13px', fontWeight: '700', color: '#2d3748' }}>Caregivers</h2>
-                        <button onClick={() => setShowAddCaregiver(!showAddCaregiver)} style={{ background: '#667eea', color: 'white', border: 'none', borderRadius: '5px', padding: '5px 8px', fontSize: '11px', fontWeight: '600', cursor: 'pointer', fontFamily: 'Quicksand' }}>{showAddCaregiver ? 'Cancel' : '+ Add'}</button>
-                    </div>
-                    {showAddCaregiver && (
-                        <div style={{ background: '#f7fafc', borderRadius: '6px', padding: '8px', marginBottom: '8px' }}>
-                            <input type="text" placeholder="Name" value={newCaregiver.name} onChange={e => setNewCaregiver(p => ({ ...p, name: e.target.value }))} style={{ width: '100%', padding: '6px', marginBottom: '5px', border: '1.5px solid #e2e8f0', borderRadius: '5px', fontSize: '12px', boxSizing: 'border-box', fontFamily: 'Quicksand' }} />
-                            <input type="text" placeholder="2-Letter Code (e.g. AL)" value={newCaregiver.code} onChange={e => setNewCaregiver(p => ({ ...p, code: e.target.value.toUpperCase().slice(0,2) }))} maxLength={2} style={{ width: '100%', padding: '6px', marginBottom: '5px', border: '1.5px solid #e2e8f0', borderRadius: '5px', fontSize: '12px', boxSizing: 'border-box', fontFamily: 'Quicksand' }} />
-                            <input type="tel" placeholder="Phone  e.g. +18135551234" value={newCaregiver.phone} onChange={e => setNewCaregiver(p => ({ ...p, phone: e.target.value }))} style={{ width: '100%', padding: '6px', marginBottom: '6px', border: '1.5px solid #e2e8f0', borderRadius: '5px', fontSize: '12px', boxSizing: 'border-box', fontFamily: 'Quicksand' }} />
-                            <div style={{ marginBottom: '6px' }}>
-                                <div style={{ fontSize: '11px', fontWeight: '600', color: '#718096', marginBottom: '4px' }}>Pick a color:</div>
-                                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(10,1fr)', gap: '3px' }}>
-                                    {PALETTE.map(color => (<div key={color} onClick={() => setNewCaregiver(p => ({ ...p, color }))} style={{ width: '20px', height: '20px', borderRadius: '4px', background: color, cursor: 'pointer', border: newCaregiver.color === color ? '2px solid #2d3748' : '2px solid transparent', boxSizing: 'border-box' }} />))}
-                                </div>
-                            </div>
-                            <button onClick={addCaregiver} disabled={!newCaregiver.name || !newCaregiver.code} style={{ width: '100%', background: newCaregiver.name && newCaregiver.code ? '#48bb78' : '#cbd5e0', color: 'white', border: 'none', borderRadius: '5px', padding: '6px', fontSize: '11px', fontWeight: '600', cursor: newCaregiver.name && newCaregiver.code ? 'pointer' : 'not-allowed', fontFamily: 'Quicksand' }}>Add Caregiver</button>
-                        </div>
-                    )}
-                    {!showAddCaregiver && (
-                        <div style={{ display: 'flex', flexDirection: 'column', gap: '5px' }}>
-                            {caregivers.map(cg => (
-                                <div key={cg.code} style={{ display: 'flex', alignItems: 'center', gap: '6px', background: '#f7fafc', borderRadius: '6px', padding: '5px 7px' }}>
-                                    <div title="Change color" onClick={() => setEditingColorFor(editingColorFor === cg.code ? null : cg.code)} style={{ width: '24px', height: '24px', borderRadius: '5px', background: cg.color, display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: '700', fontSize: '8px', color: '#fff', flexShrink: 0, boxShadow: '0 1px 3px rgba(0,0,0,0.15)', cursor: 'pointer' }}>{cg.code}</div>
-                                    <div style={{ flex: 1, minWidth: 0 }}>
-                                        <div style={{ fontSize: '11px', fontWeight: '600', color: '#2d3748', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{cg.name}</div>
-                                        {editingPhoneFor === cg.code ? (
-                                            <div style={{ display: 'flex', gap: '3px', marginTop: '2px' }}>
-                                                <input type="tel" value={editPhoneValue} onChange={e => setEditPhoneValue(e.target.value)} placeholder="+18135551234" style={{ flex: 1, padding: '2px 5px', borderRadius: '4px', border: '1.5px solid #e2e8f0', fontSize: '10px', fontFamily: 'Quicksand' }} />
-                                                <button onClick={() => savePhone(cg.code)} style={{ background: '#48bb78', color: 'white', border: 'none', borderRadius: '4px', padding: '2px 6px', fontSize: '10px', fontWeight: '600', cursor: 'pointer' }}>✓</button>
-                                                <button onClick={() => setEditingPhoneFor(null)} style={{ background: '#e2e8f0', color: '#4a5568', border: 'none', borderRadius: '4px', padding: '2px 6px', fontSize: '10px', fontWeight: '600', cursor: 'pointer' }}>✕</button>
-                                            </div>
-                                        ) : (
-                                            <div style={{ fontSize: '10px', color: cg.phone ? '#718096' : '#a0aec0' }}>{cg.phone || 'no phone — tap ✏️'}</div>
-                                        )}
-                                    </div>
-                                    <button onClick={() => { setEditingPhoneFor(cg.code); setEditPhoneValue(cg.phone || ''); }} style={{ background: 'transparent', border: 'none', cursor: 'pointer', fontSize: '12px', padding: '2px', flexShrink: 0 }}>✏️</button>
-                                    <button onClick={() => deleteCaregiver(cg.code)} style={{ background: 'none', border: 'none', color: '#e53e3e', cursor: 'pointer', padding: '1px', fontSize: '15px', lineHeight: 1, flexShrink: 0 }}>×</button>
-                                </div>
-                            ))}
-                        </div>
-                    )}
-                </div>
-                <div style={{ background: 'white', borderRadius: '8px', padding: '8px', boxShadow: '0 2px 4px rgba(0,0,0,0.08)' }}>
                     <h2 style={{ margin: '0 0 8px 0', fontSize: '13px', fontWeight: '700', color: '#2d3748' }}>{sundays.length}-Week Schedule</h2>
                     <div style={{ display: 'grid', gridTemplateColumns: 'repeat(6,1fr)', gap: '5px', marginBottom: '10px' }}>
                         {sundays.map(sunday => {
@@ -235,6 +194,50 @@
                             {sundays.filter(s => schedule[formatDate(s)]).length === 0 && (<div style={{ fontSize: '11px', color: '#a0aec0', textAlign: 'center', padding: '8px' }}>No caregivers assigned yet</div>)}
                         </div>
                     </div>
+                </div>
+                {/* Caregivers */}
+                <div style={{ background: 'white', borderRadius: '8px', padding: '8px', boxShadow: '0 2px 4px rgba(0,0,0,0.08)' }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
+                        <h2 style={{ margin: 0, fontSize: '13px', fontWeight: '700', color: '#2d3748' }}>Caregivers</h2>
+                        <button onClick={() => setShowAddCaregiver(!showAddCaregiver)} style={{ background: '#667eea', color: 'white', border: 'none', borderRadius: '5px', padding: '5px 8px', fontSize: '11px', fontWeight: '600', cursor: 'pointer', fontFamily: 'Quicksand' }}>{showAddCaregiver ? 'Cancel' : '+ Add'}</button>
+                    </div>
+                    {showAddCaregiver && (
+                        <div style={{ background: '#f7fafc', borderRadius: '6px', padding: '8px', marginBottom: '8px' }}>
+                            <input type="text" placeholder="Name" value={newCaregiver.name} onChange={e => setNewCaregiver(p => ({ ...p, name: e.target.value }))} style={{ width: '100%', padding: '6px', marginBottom: '5px', border: '1.5px solid #e2e8f0', borderRadius: '5px', fontSize: '12px', boxSizing: 'border-box', fontFamily: 'Quicksand' }} />
+                            <input type="text" placeholder="2-Letter Code (e.g. AL)" value={newCaregiver.code} onChange={e => setNewCaregiver(p => ({ ...p, code: e.target.value.toUpperCase().slice(0,2) }))} maxLength={2} style={{ width: '100%', padding: '6px', marginBottom: '5px', border: '1.5px solid #e2e8f0', borderRadius: '5px', fontSize: '12px', boxSizing: 'border-box', fontFamily: 'Quicksand' }} />
+                            <input type="tel" placeholder="Phone  e.g. +18135551234" value={newCaregiver.phone} onChange={e => setNewCaregiver(p => ({ ...p, phone: e.target.value }))} style={{ width: '100%', padding: '6px', marginBottom: '6px', border: '1.5px solid #e2e8f0', borderRadius: '5px', fontSize: '12px', boxSizing: 'border-box', fontFamily: 'Quicksand' }} />
+                            <div style={{ marginBottom: '6px' }}>
+                                <div style={{ fontSize: '11px', fontWeight: '600', color: '#718096', marginBottom: '4px' }}>Pick a color:</div>
+                                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(10,1fr)', gap: '3px' }}>
+                                    {PALETTE.map(color => (<div key={color} onClick={() => setNewCaregiver(p => ({ ...p, color }))} style={{ width: '20px', height: '20px', borderRadius: '4px', background: color, cursor: 'pointer', border: newCaregiver.color === color ? '2px solid #2d3748' : '2px solid transparent', boxSizing: 'border-box' }} />))}
+                                </div>
+                            </div>
+                            <button onClick={addCaregiver} disabled={!newCaregiver.name || !newCaregiver.code} style={{ width: '100%', background: newCaregiver.name && newCaregiver.code ? '#48bb78' : '#cbd5e0', color: 'white', border: 'none', borderRadius: '5px', padding: '6px', fontSize: '11px', fontWeight: '600', cursor: newCaregiver.name && newCaregiver.code ? 'pointer' : 'not-allowed', fontFamily: 'Quicksand' }}>Add Caregiver</button>
+                        </div>
+                    )}
+                    {!showAddCaregiver && (
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: '5px' }}>
+                            {caregivers.map(cg => (
+                                <div key={cg.code} style={{ display: 'flex', alignItems: 'center', gap: '6px', background: '#f7fafc', borderRadius: '6px', padding: '5px 7px' }}>
+                                    <div title="Change color" onClick={() => setEditingColorFor(editingColorFor === cg.code ? null : cg.code)} style={{ width: '24px', height: '24px', borderRadius: '5px', background: cg.color, display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: '700', fontSize: '8px', color: '#fff', flexShrink: 0, boxShadow: '0 1px 3px rgba(0,0,0,0.15)', cursor: 'pointer' }}>{cg.code}</div>
+                                    <div style={{ flex: 1, minWidth: 0 }}>
+                                        <div style={{ fontSize: '11px', fontWeight: '600', color: '#2d3748', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{cg.name}</div>
+                                        {editingPhoneFor === cg.code ? (
+                                            <div style={{ display: 'flex', gap: '3px', marginTop: '2px' }}>
+                                                <input type="tel" value={editPhoneValue} onChange={e => setEditPhoneValue(e.target.value)} placeholder="+18135551234" style={{ flex: 1, padding: '2px 5px', borderRadius: '4px', border: '1.5px solid #e2e8f0', fontSize: '10px', fontFamily: 'Quicksand' }} />
+                                                <button onClick={() => savePhone(cg.code)} style={{ background: '#48bb78', color: 'white', border: 'none', borderRadius: '4px', padding: '2px 6px', fontSize: '10px', fontWeight: '600', cursor: 'pointer' }}>✓</button>
+                                                <button onClick={() => setEditingPhoneFor(null)} style={{ background: '#e2e8f0', color: '#4a5568', border: 'none', borderRadius: '4px', padding: '2px 6px', fontSize: '10px', fontWeight: '600', cursor: 'pointer' }}>✕</button>
+                                            </div>
+                                        ) : (
+                                            <div style={{ fontSize: '10px', color: cg.phone ? '#718096' : '#a0aec0' }}>{cg.phone || 'no phone — tap ✏️'}</div>
+                                        )}
+                                    </div>
+                                    <button onClick={() => { setEditingPhoneFor(cg.code); setEditPhoneValue(cg.phone || ''); }} style={{ background: 'transparent', border: 'none', cursor: 'pointer', fontSize: '12px', padding: '2px', flexShrink: 0 }}>✏️</button>
+                                    <button onClick={() => deleteCaregiver(cg.code)} style={{ background: 'none', border: 'none', color: '#e53e3e', cursor: 'pointer', padding: '1px', fontSize: '15px', lineHeight: 1, flexShrink: 0 }}>×</button>
+                                </div>
+                            ))}
+                        </div>
+                    )}
                 </div>
                 {editingColorFor && (
                     <div onClick={() => setEditingColorFor(null)} style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, background: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '16px', zIndex: 1000 }}>
