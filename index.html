@@ -7,822 +7,282 @@
     <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
     <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
     <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
-    
-    <!-- Firebase v8 (more reliable for this use case) -->
-    <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
-    <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-database.js"></script>
-    
+    <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-database-compat.js"></script>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Quicksand:wght@400;500;600;700&display=swap" rel="stylesheet">
     <style>
+        * { box-sizing: border-box; }
         body {
-            margin: 0;
-            padding: 0;
+            margin: 0; padding: 0;
             font-family: 'Quicksand', -apple-system, BlinkMacSystemFont, sans-serif;
+            background: #f0f4f8;
         }
-        #root {
-            width: 100%;
-            min-height: 100vh;
-        }
+        #root { width: 100%; min-height: 100vh; }
     </style>
 </head>
 <body>
-    <div id="root"></div>
+<div id="root"></div>
+<script type="text/babel">
+    const { useState, useEffect } = React;
 
-    <script>
-        // Initialize Firebase (v8 syntax)
-        const firebaseConfig = {
-          apiKey: "AIzaSyD8CS9GHLmONH7Timj4bJyGPskZevOn8jg",
-          authDomain: "papi-sundaygap.firebaseapp.com",
-          databaseURL: "https://papi-sundaygap-default-rtdb.firebaseio.com",
-          projectId: "papi-sundaygap",
-          storageBucket: "papi-sundaygap.firebasestorage.app",
-          messagingSenderId: "93846168368",
-          appId: "1:93846168368:web:61c226190142d2de9d9ef5"
+    const firebaseConfig = {
+        apiKey: "AIzaSyD8CS9GHLmONH7Timj4bJyGPskZevOn8jg",
+        authDomain: "papi-sundaygap.firebaseapp.com",
+        databaseURL: "https://papi-sundaygap-default-rtdb.firebaseio.com",
+        projectId: "papi-sundaygap",
+        storageBucket: "papi-sundaygap.firebasestorage.app",
+        messagingSenderId: "93846168368",
+        appId: "1:93846168368:web:61c226190142d2de9d9ef5"
+    };
+
+    if (!firebase.apps.length) firebase.initializeApp(firebaseConfig);
+    const db = firebase.database();
+
+    const COLOR_PALETTE = [
+        '#667eea','#f093fb','#4facfe','#43e97b','#fa709a',
+        '#a18cd1','#fda085','#84fab0','#f6d365','#89f7fe'
+    ];
+
+    const MONTHS = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+    const MONTHS_LONG = ['January','February','March','April','May','June','July','August','September','October','November','December'];
+
+    const localDate = (d) => new Date(new Date(d).getTime() + new Date(d).getTimezoneOffset() * 60000);
+    const formatDate = (d) => { const ld = localDate(d); return `${ld.getFullYear()}-${String(ld.getMonth()+1).padStart(2,'0')}-${String(ld.getDate()).padStart(2,'0')}`; };
+    const displayDate = (d) => { const ld = localDate(d); return `${ld.getMonth()+1}/${ld.getDate()}`; };
+
+    const getSundays = (n = 16) => {
+        const today = new Date(); today.setHours(0,0,0,0);
+        const day = today.getDay();
+        const first = new Date(today); first.setDate(today.getDate() + (day === 0 ? 0 : 7 - day));
+        return Array.from({length: n}, (_, i) => { const s = new Date(first); s.setDate(first.getDate() + i*7); return s; });
+    };
+
+    function CaregiverCalendar() {
+        const [caregivers, setCaregivers]       = useState({});
+        const [schedule, setSchedule]           = useState({});
+        const [selectedSunday, setSelectedSunday] = useState(null);
+        const [newName, setNewName]             = useState('');
+        const [newPhone, setNewPhone]           = useState('');
+        const [showAddForm, setShowAddForm]     = useState(false);
+        const [editingId, setEditingId]         = useState(null);
+        const [editPhone, setEditPhone]         = useState('');
+        const [sendingKey, setSendingKey]       = useState(null);
+        const [sentKeys, setSentKeys]           = useState({});
+        const [loading, setLoading]             = useState(true);
+
+        const sundays = getSundays(16);
+
+        useEffect(() => {
+            const cgRef = db.ref('caregivers');
+            const scRef = db.ref('schedule');
+            cgRef.on('value', s => { setCaregivers(s.val() || {}); setLoading(false); });
+            scRef.on('value', s => setSchedule(s.val() || {}));
+            return () => { cgRef.off(); scRef.off(); };
+        }, []);
+
+        const addCaregiver = () => {
+            if (!newName.trim()) return;
+            const id = Date.now().toString();
+            const usedColors = Object.values(caregivers).map(c => c.color);
+            const color = COLOR_PALETTE.find(c => !usedColors.includes(c)) || COLOR_PALETTE[Object.keys(caregivers).length % COLOR_PALETTE.length];
+            db.ref(`caregivers/${id}`).set({ name: newName.trim(), phone: newPhone.trim(), color, code: newName.trim().charAt(0).toUpperCase() });
+            setNewName(''); setNewPhone(''); setShowAddForm(false);
         };
 
-        // Check if Firebase loaded and initialize
-        window.firebaseReady = false;
-        if (typeof firebase !== 'undefined') {
-            if (!firebase.apps.length) {
-                firebase.initializeApp(firebaseConfig);
-            }
-            window.firebaseReady = true;
-            console.log('✅ Firebase initialized successfully');
-        } else {
-            console.warn('⚠️ Firebase not loaded - this is expected in Claude.ai preview. Will work when deployed to Netlify.');
-        }
-    </script>
+        const deleteCaregiver = (id) => {
+            db.ref(`caregivers/${id}`).remove();
+            Object.entries(schedule).forEach(([date, cgId]) => { if (cgId === id) db.ref(`schedule/${date}`).remove(); });
+        };
 
-    <script type="text/babel">
-        const { useState, useEffect } = React;
-
-        const PALETTE = [
-          '#F38181', '#FF6B9D', '#FF8C42', '#F9A825', '#FFE66D',
-          '#A8E6CF', '#48BB78', '#4ECDC4', '#4A90D9', '#667EEA',
-          '#AA96DA', '#9C27B0', '#FCBAD3', '#FFD3B6', '#E91E63',
-          '#00BCD4', '#38B2AC', '#3182CE', '#805AD5', '#718096'
-        ];
-
-        function CaregiverCalendar() {
-          const initialCaregivers = [
-            { name: 'Alexandra', code: 'AL', color: '#AA96DA' },
-            { name: 'Andres', code: 'AN', color: '#F38181' },
-            { name: 'Claudia', code: 'CL', color: '#FCBAD3' },
-            { name: 'David', code: 'DA', color: '#4A90D9' },
-            { name: 'Eloisa', code: 'EL', color: '#FF8C42' },
-            { name: 'Gina', code: 'GI', color: '#FFE66D' },
-            { name: 'Karen', code: 'KA', color: '#FF6B9D' },
-            { name: 'Raquel', code: 'RA', color: '#FFD3B6' },
-            { name: 'Sonia', code: 'SO', color: '#4ECDC4' }
-          ];
-
-          const [caregivers, setCaregivers] = useState(initialCaregivers);
-          const [schedule, setSchedule] = useState({});
-          const [selectedSunday, setSelectedSunday] = useState(null);
-          const [showAddCaregiver, setShowAddCaregiver] = useState(false);
-          const [newCaregiver, setNewCaregiver] = useState({ name: '', code: '', color: PALETTE[0] });
-          const [editingColorFor, setEditingColorFor] = useState(null);
-          const [loaded, setLoaded] = useState(false);
-          const [firebaseAvailable, setFirebaseAvailable] = useState(false);
-
-          // Check Firebase availability
-          useEffect(() => {
-            setFirebaseAvailable(window.firebaseReady === true);
-          }, []);
-
-          // Load data from Firebase on mount and listen for changes
-          useEffect(() => {
-            if (!firebaseAvailable) {
-              setLoaded(true);
-              return;
-            }
-
-            const caregiversRef = firebase.database().ref('caregivers');
-            const scheduleRef = firebase.database().ref('schedule');
-
-            // Listen for caregivers changes
-            caregiversRef.on('value', (snapshot) => {
-              const data = snapshot.val();
-              if (data) {
-                setCaregivers(data);
-              } else {
-                // Initialize with default caregivers if none exist
-                caregiversRef.set(initialCaregivers);
-              }
-              setLoaded(true);
-            });
-
-            // Listen for schedule changes
-            scheduleRef.on('value', (snapshot) => {
-              const data = snapshot.val();
-              let currentSchedule = data || {};
-              
-              // Always ensure April 12, 2026 has Andres assigned
-              if (!currentSchedule['2026-04-12']) {
-                currentSchedule['2026-04-12'] = 'AN';
-                scheduleRef.set(currentSchedule);
-              }
-              
-              setSchedule(currentSchedule);
-            });
-
-            // Cleanup listeners on unmount
-            return () => {
-              caregiversRef.off();
-              scheduleRef.off();
-            };
-          }, [firebaseAvailable]);
-
-          // Save caregivers to Firebase when they change
-          const updateCaregivers = (newCaregivers) => {
-            setCaregivers(newCaregivers);
-            if (firebaseAvailable) {
-              firebase.database().ref('caregivers').set(newCaregivers);
-            }
-          };
-
-          // Save schedule to Firebase when it changes
-          const updateSchedule = (newSchedule) => {
-            setSchedule(newSchedule);
-            if (firebaseAvailable) {
-              firebase.database().ref('schedule').set(newSchedule);
-            }
-          };
-
-          // Get all Sundays starting from April 12, 2026
-          const getSundays = () => {
-            const sundays = [];
-            const today = new Date();
-            
-            // Start date: April 12, 2026 (first historical Sunday)
-            const startDate = new Date('2026-04-12');
-            startDate.setHours(0, 0, 0, 0);
-            
-            // Find the most recent Sunday (could be today)
-            let currentSunday = new Date(today);
-            currentSunday.setHours(0, 0, 0, 0);
-            while (currentSunday.getDay() !== 0) {
-              currentSunday.setDate(currentSunday.getDate() - 1);
-            }
-
-            // Calculate how many past Sundays to show (max 12, starting from April 12, 2026)
-            let pastSunday = new Date(currentSunday);
-            const pastSundays = [];
-            
-            // Go back and collect past Sundays, stopping at startDate or 12 weeks
-            for (let i = 1; i <= 12; i++) {
-              pastSunday = new Date(currentSunday);
-              pastSunday.setDate(currentSunday.getDate() - (i * 7));
-              
-              // Stop if we've gone before the start date
-              if (pastSunday < startDate) {
-                break;
-              }
-              
-              pastSundays.unshift(pastSunday);
-            }
-            
-            // Add the collected past Sundays
-            sundays.push(...pastSundays);
-
-            // Add current Sunday and 17 future Sundays (18 total)
-            for (let i = 0; i < 18; i++) {
-              const futureSunday = new Date(currentSunday);
-              futureSunday.setDate(currentSunday.getDate() + (i * 7));
-              sundays.push(futureSunday);
-            }
-
-            return sundays;
-          };
-
-          const sundays = getSundays();
-          const today = new Date();
-          today.setHours(0, 0, 0, 0);
-
-          const formatDate = (date) => {
-            return date.toISOString().split('T')[0];
-          };
-
-          const formatDisplayDate = (date) => {
-            const month = date.toLocaleDateString('en-US', { month: 'short' });
-            const day = date.getDate();
-            return `${month} ${day}`;
-          };
-
-          const assignCaregiver = (sunday, caregiverCode) => {
-            const dateKey = formatDate(sunday);
-            const newSchedule = {
-              ...schedule,
-              [dateKey]: caregiverCode
-            };
-            updateSchedule(newSchedule);
+        const assignCaregiver = (cgId) => {
+            db.ref(`schedule/${formatDate(selectedSunday)}`).set(cgId);
             setSelectedSunday(null);
-          };
+        };
 
-          const clearAssignment = (sunday) => {
+        const clearAssignment = () => {
+            db.ref(`schedule/${formatDate(selectedSunday)}`).remove();
+            setSelectedSunday(null);
+        };
+
+        const savePhone = (id) => {
+            db.ref(`caregivers/${id}/phone`).set(editPhone.trim());
+            setEditingId(null); setEditPhone('');
+        };
+
+        const sendReminder = async (sunday) => {
             const dateKey = formatDate(sunday);
-            const newSchedule = { ...schedule };
-            delete newSchedule[dateKey];
-            updateSchedule(newSchedule);
-          };
+            const cg = caregivers[schedule[dateKey]];
+            if (!cg) return;
+            if (!cg.phone) { alert(`No phone number for ${cg.name}. Tap ✏️ to add one.`); return; }
 
-          const addCaregiver = () => {
-            if (!newCaregiver.name || !newCaregiver.code) return;
-            const newCaregivers = [...caregivers, { ...newCaregiver }];
-            updateCaregivers(newCaregivers);
-            setNewCaregiver({ name: '', code: '', color: PALETTE[0] });
-            setShowAddCaregiver(false);
-          };
+            const firstName = cg.name.split(' ')[0];
+            const msg = `Hi ${firstName}, reminder that you are scheduled for Papi's care this Sunday ${displayDate(sunday)} from 6:00–8:00 PM. App: https://papi-sundaygap.netlify.app`;
 
-          const changeColor = (code, color) => {
-            const newCaregivers = caregivers.map(c => c.code === code ? { ...c, color } : c);
-            updateCaregivers(newCaregivers);
-            setEditingColorFor(null);
-          };
+            if (!window.confirm(`Send to ${cg.name} (${cg.phone})?\n\n"${msg}"`)) return;
 
-          const deleteCaregiver = (code) => {
-            if (confirm(`Remove ${caregivers.find(c => c.code === code)?.name} from the list?`)) {
-              const newCaregivers = caregivers.filter(c => c.code !== code);
-              updateCaregivers(newCaregivers);
-              
-              // Remove their assignments
-              const newSchedule = { ...schedule };
-              Object.keys(newSchedule).forEach(date => {
-                if (newSchedule[date] === code) {
-                  delete newSchedule[date];
+            setSendingKey(dateKey);
+            try {
+                const res = await fetch('/.netlify/functions/send-sms', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ to: cg.phone, message: msg })
+                });
+                const result = await res.json();
+                if (res.ok) {
+                    setSentKeys(prev => ({ ...prev, [dateKey]: true }));
+                    setTimeout(() => setSentKeys(prev => { const n = {...prev}; delete n[dateKey]; return n; }), 4000);
+                } else {
+                    alert(`Failed to send: ${result.error}`);
                 }
-              });
-              updateSchedule(newSchedule);
+            } catch (err) {
+                alert('Could not reach the messaging service. Please try again.');
+            } finally {
+                setSendingKey(null);
             }
-          };
+        };
 
-          return (
-            <div style={{
-              fontFamily: '"Quicksand", -apple-system, BlinkMacSystemFont, sans-serif',
-              background: 'linear-gradient(135deg, #f5f7fa 0%, #e8ecf1 100%)',
-              height: '100vh',
-              padding: '6px',
-              display: 'flex',
-              flexDirection: 'column',
-              overflow: 'hidden',
-              boxSizing: 'border-box'
-            }}>
-              {/* Header */}
-              <div style={{
-                background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
-                borderRadius: '8px',
-                padding: '8px 12px',
-                marginBottom: '6px',
-                boxShadow: '0 3px 12px rgba(102, 126, 234, 0.3)',
-                color: 'white',
-                flexShrink: 0
-              }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
-                  <div>
-                    <h1 style={{
-                      margin: '0 0 2px 0',
-                      fontSize: '15px',
-                      fontWeight: '700',
-                      letterSpacing: '-0.3px'
-                    }}>
-                      Sunday Care Schedule
-                    </h1>
-                    <p style={{
-                      margin: 0,
-                      fontSize: '11px',
-                      opacity: 0.95,
-                      fontWeight: '500'
-                    }}>
-                      MaCristina & Papi • 6:00-8:00 PM
-                    </p>
-                  </div>
-                  {firebaseAvailable && (
-                    <div style={{
-                      background: 'rgba(255,255,255,0.2)',
-                      borderRadius: '4px',
-                      padding: '3px 6px',
-                      fontSize: '9px',
-                      fontWeight: '600'
-                    }}>
-                      ✓ SYNCED
-                    </div>
-                  )}
-                  {!firebaseAvailable && (
-                    <div style={{
-                      background: 'rgba(255,255,255,0.2)',
-                      borderRadius: '4px',
-                      padding: '3px 6px',
-                      fontSize: '9px',
-                      fontWeight: '600'
-                    }}>
-                      PREVIEW
-                    </div>
-                  )}
+        if (loading) return (
+            <div style={{ display:'flex', justifyContent:'center', alignItems:'center', height:'100vh' }}>
+                <div style={{ textAlign:'center', color:'#667eea' }}>
+                    <div style={{ fontSize:'40px', marginBottom:'12px' }}>🗓️</div>
+                    <div style={{ fontSize:'16px', fontWeight:'600', fontFamily:'Quicksand' }}>Loading schedule...</div>
                 </div>
-              </div>
+            </div>
+        );
 
-              {/* Legend */}
-              <div style={{
-                background: 'white',
-                borderRadius: '8px',
-                padding: '8px',
-                marginBottom: '6px',
-                boxShadow: '0 2px 4px rgba(0,0,0,0.08)',
-                flexShrink: 0
-              }}>
-                <div style={{
-                  display: 'flex',
-                  justifyContent: 'space-between',
-                  alignItems: 'center',
-                  marginBottom: '8px'
-                }}>
-                  <h2 style={{
-                    margin: 0,
-                    fontSize: '13px',
-                    fontWeight: '700',
-                    color: '#2d3748'
-                  }}>
-                    Caregivers
-                  </h2>
-                  <button
-                    onClick={() => setShowAddCaregiver(!showAddCaregiver)}
-                    style={{
-                      background: '#667eea',
-                      color: 'white',
-                      border: 'none',
-                      borderRadius: '5px',
-                      padding: '5px 8px',
-                      fontSize: '11px',
-                      fontWeight: '600',
-                      cursor: 'pointer'
-                    }}
-                  >
-                    {showAddCaregiver ? 'Cancel' : '+ Add'}
-                  </button>
+        return (
+            <div style={{ maxWidth:'480px', margin:'0 auto', padding:'12px', fontFamily:'Quicksand' }}>
+
+                {/* ── Header ── */}
+                <div style={{ background:'linear-gradient(135deg,#667eea 0%,#764ba2 100%)', borderRadius:'16px', padding:'16px', marginBottom:'16px', color:'white', boxShadow:'0 6px 20px rgba(102,126,234,0.35)' }}>
+                    <h1 style={{ margin:'0 0 4px 0', fontSize:'22px', fontWeight:'700', letterSpacing:'-0.5px' }}>Sunday Care Schedule</h1>
+                    <p style={{ margin:0, fontSize:'13px', opacity:0.9, fontWeight:'500' }}>MaCristina & Papi • 6:00–8:00 PM</p>
                 </div>
 
-                {showAddCaregiver && (
-                  <div style={{
-                    background: '#f7fafc',
-                    borderRadius: '6px',
-                    padding: '8px',
-                    marginBottom: '8px'
-                  }}>
-                    <input
-                      type="text"
-                      placeholder="Name"
-                      value={newCaregiver.name}
-                      onChange={(e) => setNewCaregiver(prev => ({ ...prev, name: e.target.value }))}
-                      style={{
-                        width: '100%',
-                        padding: '6px',
-                        marginBottom: '5px',
-                        border: '1.5px solid #e2e8f0',
-                        borderRadius: '5px',
-                        fontSize: '12px',
-                        boxSizing: 'border-box'
-                      }}
-                    />
-                    <input
-                      type="text"
-                      placeholder="2-Letter Code"
-                      value={newCaregiver.code}
-                      onChange={(e) => setNewCaregiver(prev => ({ ...prev, code: e.target.value.toUpperCase().slice(0, 2) }))}
-                      maxLength={2}
-                      style={{
-                        width: '100%',
-                        padding: '6px',
-                        marginBottom: '6px',
-                        border: '1.5px solid #e2e8f0',
-                        borderRadius: '5px',
-                        fontSize: '12px',
-                        boxSizing: 'border-box'
-                      }}
-                    />
-                    <div style={{ marginBottom: '6px' }}>
-                      <div style={{ fontSize: '11px', fontWeight: '600', color: '#718096', marginBottom: '4px' }}>
-                        Pick a color:
-                      </div>
-                      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(10, 1fr)', gap: '3px' }}>
-                        {PALETTE.map(color => (
-                          <div
-                            key={color}
-                            onClick={() => setNewCaregiver(prev => ({ ...prev, color }))}
-                            style={{
-                              width: '20px',
-                              height: '20px',
-                              borderRadius: '4px',
-                              background: color,
-                              cursor: 'pointer',
-                              border: newCaregiver.color === color ? '2px solid #2d3748' : '2px solid transparent',
-                              boxSizing: 'border-box'
-                            }}
-                          />
-                        ))}
-                      </div>
+                {/* ── Calendar ── */}
+                <div style={{ background:'white', borderRadius:'16px', padding:'16px', marginBottom:'16px', boxShadow:'0 2px 12px rgba(0,0,0,0.08)' }}>
+                    <h2 style={{ margin:'0 0 12px 0', fontSize:'13px', fontWeight:'700', color:'#4a5568', textTransform:'uppercase', letterSpacing:'0.5px' }}>Upcoming Sundays</h2>
+                    <div style={{ display:'flex', flexDirection:'column', gap:'8px' }}>
+                        {sundays.map(sunday => {
+                            const dateKey = formatDate(sunday);
+                            const cgId    = schedule[dateKey];
+                            const cg      = cgId ? caregivers[cgId] : null;
+                            const ld      = localDate(sunday);
+                            const isSending = sendingKey === dateKey;
+                            const justSent  = sentKeys[dateKey];
+
+                            return (
+                                <div key={dateKey}
+                                    onClick={() => setSelectedSunday(sunday)}
+                                    style={{ display:'flex', alignItems:'center', gap:'10px', padding:'10px 12px', borderRadius:'12px', background: cg ? `${cg.color}15` : '#f7fafc', border:`1.5px solid ${cg ? cg.color+'40' : '#e2e8f0'}`, cursor:'pointer' }}>
+
+                                    {/* Date badge */}
+                                    <div style={{ minWidth:'44px', textAlign:'center', background: cg ? cg.color : '#e2e8f0', borderRadius:'10px', padding:'4px 6px', color: cg ? 'white' : '#718096' }}>
+                                        <div style={{ fontSize:'10px', fontWeight:'600', opacity:0.85 }}>{MONTHS[ld.getMonth()]}</div>
+                                        <div style={{ fontSize:'18px', fontWeight:'700', lineHeight:1 }}>{ld.getDate()}</div>
+                                    </div>
+
+                                    {/* Name or placeholder */}
+                                    <div style={{ flex:1 }}>
+                                        {cg
+                                            ? <div style={{ fontSize:'14px', fontWeight:'600', color:'#2d3748' }}>{cg.name}</div>
+                                            : <div style={{ fontSize:'13px', color:'#a0aec0', fontWeight:'500' }}>Tap to assign caregiver</div>
+                                        }
+                                    </div>
+
+                                    {/* 📱 Remind button */}
+                                    {cg && (
+                                        <button
+                                            onClick={e => { e.stopPropagation(); sendReminder(sunday); }}
+                                            disabled={isSending}
+                                            style={{ background: justSent ? '#48bb78' : cg.color, color:'white', border:'none', borderRadius:'8px', padding:'6px 10px', fontSize:'12px', fontWeight:'600', cursor: isSending ? 'wait' : 'pointer', whiteSpace:'nowrap', fontFamily:'Quicksand', transition:'background 0.2s' }}>
+                                            {isSending ? '...' : justSent ? '✓ Sent' : '📱 Remind'}
+                                        </button>
+                                    )}
+                                </div>
+                            );
+                        })}
                     </div>
-                    <button
-                      onClick={addCaregiver}
-                      disabled={!newCaregiver.name || !newCaregiver.code}
-                      style={{
-                        width: '100%',
-                        background: newCaregiver.name && newCaregiver.code ? '#48bb78' : '#cbd5e0',
-                        color: 'white',
-                        border: 'none',
-                        borderRadius: '5px',
-                        padding: '6px',
-                        fontSize: '11px',
-                        fontWeight: '600',
-                        cursor: newCaregiver.name && newCaregiver.code ? 'pointer' : 'not-allowed'
-                      }}
-                    >
-                      Add Caregiver
-                    </button>
-                  </div>
-                )}
+                </div>
 
-                {!showAddCaregiver && (
-                  <div style={{
-                    display: 'grid',
-                    gridTemplateColumns: 'repeat(auto-fill, minmax(90px, 1fr))',
-                    gap: '5px'
-                  }}>
-                    {caregivers.map(caregiver => (
-                      <div
-                        key={caregiver.code}
-                        style={{
-                          display: 'flex',
-                          alignItems: 'center',
-                          background: '#f7fafc',
-                          borderRadius: '5px',
-                          padding: '4px 5px',
-                          position: 'relative'
-                        }}
-                      >
-                        <div
-                          title="Change color"
-                          onClick={() => setEditingColorFor(editingColorFor === caregiver.code ? null : caregiver.code)}
-                          style={{
-                            width: '18px',
-                            height: '18px',
-                            borderRadius: '4px',
-                            background: caregiver.color,
-                            display: 'flex',
-                            alignItems: 'center',
-                            justifyContent: 'center',
-                            fontWeight: '700',
-                            fontSize: '8px',
-                            color: '#fff',
-                            marginRight: '4px',
-                            flexShrink: 0,
-                            boxShadow: '0 1px 3px rgba(0,0,0,0.15)',
-                            cursor: 'pointer'
-                          }}
-                        >
-                          {caregiver.code}
-                        </div>
-                        <span style={{
-                          fontSize: '10px',
-                          fontWeight: '600',
-                          color: '#2d3748',
-                          flex: 1,
-                          whiteSpace: 'nowrap',
-                          overflow: 'hidden',
-                          textOverflow: 'ellipsis'
-                        }}>
-                          {caregiver.name}
-                        </span>
-                        <button
-                          onClick={() => deleteCaregiver(caregiver.code)}
-                          style={{
-                            background: 'none',
-                            border: 'none',
-                            color: '#e53e3e',
-                            cursor: 'pointer',
-                            padding: '1px',
-                            fontSize: '13px',
-                            lineHeight: 1,
-                            marginLeft: '2px'
-                          }}
-                        >
-                          ×
-                        </button>
-                      </div>
-                    ))}
-                  </div>
-                )}
-              </div>
+                {/* ── Caregivers ── */}
+                <div style={{ background:'white', borderRadius:'16px', padding:'16px', boxShadow:'0 2px 12px rgba(0,0,0,0.08)' }}>
+                    <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:'12px' }}>
+                        <h2 style={{ margin:0, fontSize:'13px', fontWeight:'700', color:'#4a5568', textTransform:'uppercase', letterSpacing:'0.5px' }}>Caregivers</h2>
+                        <button onClick={() => setShowAddForm(!showAddForm)} style={{ background:'#667eea', color:'white', border:'none', borderRadius:'8px', padding:'6px 12px', fontSize:'13px', fontWeight:'600', cursor:'pointer', fontFamily:'Quicksand' }}>+ Add</button>
+                    </div>
 
-              {/* Calendar Grid */}
-              <div style={{
-                background: 'white',
-                borderRadius: '8px',
-                padding: '8px',
-                boxShadow: '0 2px 4px rgba(0,0,0,0.08)',
-                flex: 1,
-                display: 'flex',
-                flexDirection: 'column',
-                minHeight: 0
-              }}>
-                <h2 style={{
-                  margin: '0 0 8px 0',
-                  fontSize: '13px',
-                  fontWeight: '700',
-                  color: '#2d3748',
-                  flexShrink: 0
-                }}>
-                  {sundays.length}-Week Schedule
-                </h2>
-
-                <div style={{
-                  flex: 1,
-                  overflowY: 'auto',
-                  overflowX: 'hidden',
-                  minHeight: 0
-                }}>
-                  <div style={{
-                    display: 'grid',
-                    gridTemplateColumns: 'repeat(6, 1fr)',
-                    gap: '5px'
-                  }}>
-                    {sundays.map((sunday, index) => {
-                      const dateKey = formatDate(sunday);
-                      const assignedCode = schedule[dateKey];
-                      const caregiver = caregivers.find(c => c.code === assignedCode);
-                      const isPast = sunday < today;
-                      const isFuture = sunday >= today;
-
-                      return (
-                        <div
-                          key={dateKey}
-                          onClick={() => setSelectedSunday(sunday)}
-                          style={{
-                            aspectRatio: '1',
-                            borderRadius: '7px',
-                            border: sunday.getTime() === today.getTime() ? '2px solid #667eea' : '1px solid #e2e8f0',
-                            background: caregiver ? caregiver.color : '#ffffff',
-                            display: 'flex',
-                            flexDirection: 'column',
-                            alignItems: 'center',
-                            justifyContent: 'center',
-                            cursor: 'pointer',
-                            opacity: 1,
-                            transition: 'all 0.2s ease',
-                            position: 'relative',
-                            boxShadow: caregiver ? '0 2px 4px rgba(0,0,0,0.15)' : '0 1px 2px rgba(0,0,0,0.05)',
-                            transform: selectedSunday === sunday ? 'scale(0.95)' : 'scale(1)'
-                          }}
-                          onMouseEnter={(e) => {
-                            if (!caregiver) {
-                              e.currentTarget.style.background = '#f7fafc';
-                            }
-                          }}
-                          onMouseLeave={(e) => {
-                            if (!caregiver) {
-                              e.currentTarget.style.background = '#ffffff';
-                            }
-                          }}
-                        >
-                          <div style={{
-                            fontSize: '11px',
-                            fontWeight: '600',
-                            color: caregiver ? '#fff' : '#718096',
-                            marginBottom: '2px'
-                          }}>
-                            {formatDisplayDate(sunday)}
-                          </div>
-                          {caregiver && (
-                            <div style={{
-                              fontSize: '13px',
-                              fontWeight: '700',
-                              color: '#fff',
-                              textShadow: '0 1px 2px rgba(0,0,0,0.2)'
-                            }}>
-                              {caregiver.code}
+                    {showAddForm && (
+                        <div style={{ background:'#f7fafc', borderRadius:'10px', padding:'12px', marginBottom:'12px' }}>
+                            <input type="text" placeholder="Full name" value={newName} onChange={e => setNewName(e.target.value)}
+                                style={{ width:'100%', padding:'8px 10px', borderRadius:'8px', border:'1.5px solid #e2e8f0', fontSize:'13px', fontFamily:'Quicksand', marginBottom:'8px' }} />
+                            <input type="tel" placeholder="Phone  e.g. +18135551234" value={newPhone} onChange={e => setNewPhone(e.target.value)}
+                                style={{ width:'100%', padding:'8px 10px', borderRadius:'8px', border:'1.5px solid #e2e8f0', fontSize:'13px', fontFamily:'Quicksand', marginBottom:'8px' }} />
+                            <div style={{ display:'flex', gap:'8px' }}>
+                                <button onClick={addCaregiver} style={{ flex:1, background:'#667eea', color:'white', border:'none', borderRadius:'8px', padding:'8px', fontSize:'13px', fontWeight:'600', cursor:'pointer', fontFamily:'Quicksand' }}>Add</button>
+                                <button onClick={() => setShowAddForm(false)} style={{ flex:1, background:'#e2e8f0', color:'#4a5568', border:'none', borderRadius:'8px', padding:'8px', fontSize:'13px', fontWeight:'600', cursor:'pointer', fontFamily:'Quicksand' }}>Cancel</button>
                             </div>
-                          )}
-                          {!caregiver && (
-                            <div style={{
-                              fontSize: '14px',
-                              color: '#cbd5e0'
-                            }}>
-                              +
-                            </div>
-                          )}
                         </div>
-                      );
-                    })}
-                  </div>
-                </div>
-              </div>
-
-              {/* Color Picker Modal */}
-              {editingColorFor && (
-                <div
-                  onClick={() => setEditingColorFor(null)}
-                  style={{
-                    position: 'fixed', top: 0, left: 0, right: 0, bottom: 0,
-                    background: 'rgba(0,0,0,0.5)',
-                    display: 'flex', alignItems: 'center', justifyContent: 'center',
-                    padding: '16px', zIndex: 1000
-                  }}
-                >
-                  <div
-                    onClick={(e) => e.stopPropagation()}
-                    style={{
-                      background: 'white', borderRadius: '12px', padding: '14px',
-                      boxShadow: '0 20px 60px rgba(0,0,0,0.3)', width: '200px'
-                    }}
-                  >
-                    <p style={{ margin: '0 0 10px 0', fontSize: '13px', fontWeight: '700', color: '#2d3748' }}>
-                      Change color for {caregivers.find(c => c.code === editingColorFor)?.name}
-                    </p>
-                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(5, 1fr)', gap: '5px', marginBottom: '10px' }}>
-                      {PALETTE.map(color => (
-                        <div
-                          key={color}
-                          onClick={() => changeColor(editingColorFor, color)}
-                          style={{
-                            width: '28px', height: '28px', borderRadius: '6px',
-                            background: color, cursor: 'pointer',
-                            border: caregivers.find(c => c.code === editingColorFor)?.color === color
-                              ? '3px solid #2d3748' : '3px solid transparent',
-                            boxSizing: 'border-box'
-                          }}
-                        />
-                      ))}
-                    </div>
-                    <button
-                      onClick={() => setEditingColorFor(null)}
-                      style={{
-                        width: '100%', background: '#edf2f7', color: '#2d3748',
-                        border: 'none', borderRadius: '8px', padding: '8px',
-                        fontSize: '12px', fontWeight: '600', cursor: 'pointer'
-                      }}
-                    >
-                      Cancel
-                    </button>
-                  </div>
-                </div>
-              )}
-
-              {/* Assignment Modal */}
-              {selectedSunday && (
-                <div
-                  onClick={() => setSelectedSunday(null)}
-                  style={{
-                    position: 'fixed',
-                    top: 0,
-                    left: 0,
-                    right: 0,
-                    bottom: 0,
-                    background: 'rgba(0,0,0,0.5)',
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    padding: '16px',
-                    zIndex: 1000
-                  }}
-                >
-                  <div
-                    onClick={(e) => e.stopPropagation()}
-                    style={{
-                      background: 'white',
-                      borderRadius: '16px',
-                      padding: '16px',
-                      maxWidth: '360px',
-                      width: '100%',
-                      maxHeight: '80vh',
-                      overflowY: 'auto',
-                      boxShadow: '0 20px 60px rgba(0,0,0,0.3)'
-                    }}
-                  >
-                    <h3 style={{
-                      margin: '0 0 6px 0',
-                      fontSize: '18px',
-                      fontWeight: '700',
-                      color: '#2d3748'
-                    }}>
-                      {formatDisplayDate(selectedSunday)}
-                    </h3>
-                    <p style={{
-                      margin: '0 0 14px 0',
-                      fontSize: '13px',
-                      color: '#718096'
-                    }}>
-                      Select a caregiver for this Sunday
-                    </p>
-
-                    <div style={{
-                      display: 'flex',
-                      flexDirection: 'column',
-                      gap: '8px',
-                      marginBottom: '12px'
-                    }}>
-                      {caregivers.map(caregiver => (
-                        <button
-                          key={caregiver.code}
-                          onClick={() => assignCaregiver(selectedSunday, caregiver.code)}
-                          style={{
-                            display: 'flex',
-                            alignItems: 'center',
-                            background: '#f7fafc',
-                            border: '2px solid #e2e8f0',
-                            borderRadius: '10px',
-                            padding: '10px 12px',
-                            cursor: 'pointer',
-                            transition: 'all 0.2s ease'
-                          }}
-                          onMouseEnter={(e) => {
-                            e.currentTarget.style.background = caregiver.color;
-                            e.currentTarget.style.borderColor = caregiver.color;
-                            e.currentTarget.querySelector('span').style.color = '#fff';
-                            e.currentTarget.querySelector('div').style.boxShadow = '0 4px 12px rgba(0,0,0,0.2)';
-                          }}
-                          onMouseLeave={(e) => {
-                            e.currentTarget.style.background = '#f7fafc';
-                            e.currentTarget.style.borderColor = '#e2e8f0';
-                            e.currentTarget.querySelector('span').style.color = '#2d3748';
-                            e.currentTarget.querySelector('div').style.boxShadow = '0 2px 8px rgba(0,0,0,0.15)';
-                          }}
-                        >
-                          <div style={{
-                            width: '32px',
-                            height: '32px',
-                            borderRadius: '8px',
-                            background: caregiver.color,
-                            display: 'flex',
-                            alignItems: 'center',
-                            justifyContent: 'center',
-                            fontWeight: '700',
-                            fontSize: '13px',
-                            color: '#fff',
-                            marginRight: '10px',
-                            boxShadow: '0 2px 8px rgba(0,0,0,0.15)',
-                            transition: 'all 0.2s ease'
-                          }}>
-                            {caregiver.code}
-                          </div>
-                          <span style={{
-                            fontSize: '15px',
-                            fontWeight: '600',
-                            color: '#2d3748',
-                            transition: 'all 0.2s ease'
-                          }}>
-                            {caregiver.name}
-                          </span>
-                        </button>
-                      ))}
-                    </div>
-
-                    {schedule[formatDate(selectedSunday)] && (
-                      <button
-                        onClick={() => clearAssignment(selectedSunday)}
-                        style={{
-                          width: '100%',
-                          background: '#fed7d7',
-                          color: '#c53030',
-                          border: 'none',
-                          borderRadius: '10px',
-                          padding: '10px',
-                          fontSize: '13px',
-                          fontWeight: '600',
-                          cursor: 'pointer',
-                          marginBottom: '8px'
-                        }}
-                      >
-                        Clear Assignment
-                      </button>
                     )}
 
-                    <button
-                      onClick={() => setSelectedSunday(null)}
-                      style={{
-                        width: '100%',
-                        background: '#edf2f7',
-                        color: '#2d3748',
-                        border: 'none',
-                        borderRadius: '10px',
-                        padding: '10px',
-                        fontSize: '13px',
-                        fontWeight: '600',
-                        cursor: 'pointer'
-                      }}
-                    >
-                      Cancel
-                    </button>
-                  </div>
+                    <div style={{ display:'flex', flexDirection:'column', gap:'6px' }}>
+                        {Object.entries(caregivers).map(([id, cg]) => (
+                            <div key={id} style={{ display:'flex', alignItems:'center', gap:'10px', padding:'8px 10px', borderRadius:'10px', background:`${cg.color}15`, border:`1.5px solid ${cg.color}30` }}>
+                                <div style={{ width:'32px', height:'32px', borderRadius:'8px', background:cg.color, display:'flex', alignItems:'center', justifyContent:'center', color:'white', fontSize:'14px', fontWeight:'700', flexShrink:0 }}>
+                                    {cg.code || cg.name.charAt(0)}
+                                </div>
+                                <div style={{ flex:1, minWidth:0 }}>
+                                    <div style={{ fontSize:'13px', fontWeight:'600', color:'#2d3748' }}>{cg.name}</div>
+                                    {editingId === id ? (
+                                        <div style={{ display:'flex', gap:'4px', marginTop:'4px' }}>
+                                            <input type="tel" value={editPhone} onChange={e => setEditPhone(e.target.value)} placeholder="+18135551234"
+                                                style={{ flex:1, padding:'4px 6px', borderRadius:'6px', border:'1.5px solid #e2e8f0', fontSize:'11px', fontFamily:'Quicksand' }} />
+                                            <button onClick={() => savePhone(id)} style={{ background:'#48bb78', color:'white', border:'none', borderRadius:'6px', padding:'4px 8px', fontSize:'11px', fontWeight:'600', cursor:'pointer', fontFamily:'Quicksand' }}>✓</button>
+                                            <button onClick={() => setEditingId(null)} style={{ background:'#e2e8f0', color:'#4a5568', border:'none', borderRadius:'6px', padding:'4px 8px', fontSize:'11px', fontWeight:'600', cursor:'pointer', fontFamily:'Quicksand' }}>✕</button>
+                                        </div>
+                                    ) : (
+                                        <div style={{ fontSize:'11px', color: cg.phone ? '#718096' : '#a0aec0' }}>{cg.phone || 'No phone — tap ✏️ to add'}</div>
+                                    )}
+                                </div>
+                                <button onClick={() => { setEditingId(id); setEditPhone(cg.phone || ''); }} style={{ background:'transparent', border:'none', cursor:'pointer', fontSize:'14px', padding:'4px', flexShrink:0 }}>✏️</button>
+                                <button onClick={() => deleteCaregiver(id)} style={{ background:'#fed7d7', color:'#c53030', border:'none', borderRadius:'6px', padding:'4px 8px', fontSize:'11px', fontWeight:'600', cursor:'pointer', fontFamily:'Quicksand', flexShrink:0 }}>✕</button>
+                            </div>
+                        ))}
+                    </div>
                 </div>
-              )}
-            </div>
-          );
-        }
 
-        // Render the app
-        const root = ReactDOM.createRoot(document.getElementById('root'));
-        root.render(<CaregiverCalendar />);
-    </script>
+                {/* ── Assignment Modal ── */}
+                {selectedSunday && (
+                    <div style={{ position:'fixed', inset:0, background:'rgba(0,0,0,0.5)', display:'flex', alignItems:'flex-end', justifyContent:'center', zIndex:1000, padding:'0 12px 12px' }}>
+                        <div style={{ background:'white', borderRadius:'20px', padding:'20px', width:'100%', maxWidth:'456px', boxShadow:'0 -4px 30px rgba(0,0,0,0.15)' }}>
+                            <h3 style={{ margin:'0 0 4px 0', fontSize:'16px', fontWeight:'700', color:'#2d3748' }}>Assign Caregiver</h3>
+                            <p style={{ margin:'0 0 14px 0', fontSize:'13px', color:'#718096' }}>
+                                {(() => { const ld = localDate(selectedSunday); return `Sunday, ${MONTHS_LONG[ld.getMonth()]} ${ld.getDate()}, ${ld.getFullYear()}`; })()}
+                            </p>
+                            <div style={{ display:'flex', flexDirection:'column', gap:'8px', marginBottom:'10px' }}>
+                                {Object.entries(caregivers).map(([id, cg]) => (
+                                    <button key={id} onClick={() => assignCaregiver(id)}
+                                        style={{ display:'flex', alignItems:'center', gap:'10px', padding:'10px 12px', borderRadius:'10px', background:`${cg.color}15`, border:`1.5px solid ${cg.color}40`, cursor:'pointer', textAlign:'left', fontFamily:'Quicksand' }}>
+                                        <div style={{ width:'30px', height:'30px', borderRadius:'8px', background:cg.color, display:'flex', alignItems:'center', justifyContent:'center', color:'white', fontSize:'13px', fontWeight:'700' }}>{cg.code || cg.name.charAt(0)}</div>
+                                        <span style={{ fontSize:'14px', fontWeight:'600', color:'#2d3748' }}>{cg.name}</span>
+                                    </button>
+                                ))}
+                            </div>
+                            {schedule[formatDate(selectedSunday)] && (
+                                <button onClick={clearAssignment} style={{ width:'100%', background:'#fed7d7', color:'#c53030', border:'none', borderRadius:'10px', padding:'10px', fontSize:'13px', fontWeight:'600', cursor:'pointer', marginBottom:'8px', fontFamily:'Quicksand' }}>Clear Assignment</button>
+                            )}
+                            <button onClick={() => setSelectedSunday(null)} style={{ width:'100%', background:'#edf2f7', color:'#2d3748', border:'none', borderRadius:'10px', padding:'10px', fontSize:'13px', fontWeight:'600', cursor:'pointer', fontFamily:'Quicksand' }}>Cancel</button>
+                        </div>
+                    </div>
+                )}
+
+            </div>
+        );
+    }
+
+    ReactDOM.createRoot(document.getElementById('root')).render(<CaregiverCalendar />);
+</script>
 </body>
 </html>
