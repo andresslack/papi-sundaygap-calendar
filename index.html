@@ -37,12 +37,20 @@
 </script>
 <script type="text/babel">
     const { useState, useEffect } = React;
+
     const PALETTE = [
         '#F38181','#FF6B9D','#FF8C42','#F9A825','#FFE66D',
         '#A8E6CF','#48BB78','#4ECDC4','#4A90D9','#667EEA',
         '#AA96DA','#9C27B0','#FCBAD3','#FFD3B6','#E91E63',
         '#00BCD4','#38B2AC','#3182CE','#805AD5','#718096'
     ];
+
+    // ── Phone formatting helpers ──────────────────────────────────────
+    const digitsOnly    = (v) => v.replace(/\D/g, '');
+    const toE164        = (v) => { const d = digitsOnly(v); if (d.length === 10) return `+1${d}`; if (d.length === 11 && d.startsWith('1')) return `+${d}`; return `+1${d}`; };
+    const toDisplay     = (v) => { if (!v) return ''; const d = digitsOnly(v).slice(-10); if (d.length !== 10) return v; return `(${d.slice(0,3)}) ${d.slice(3,6)}-${d.slice(6)}`; };
+    const formatAsTyped = (v) => { const d = digitsOnly(v).slice(0,10); if (!d.length) return ''; if (d.length <= 3) return `(${d}`; if (d.length <= 6) return `(${d.slice(0,3)}) ${d.slice(3)}`; return `(${d.slice(0,3)}) ${d.slice(3,6)}-${d.slice(6)}`; };
+
     function CaregiverCalendar() {
         const initialCaregivers = [
             { name: 'Alexandra', code: 'AL', color: '#AA96DA', phone: '' },
@@ -67,6 +75,7 @@
         const [firebaseAvailable, setFirebaseAvailable] = useState(false);
         const [sendingDate,       setSendingDate]       = useState(null);
         const [sentDates,         setSentDates]         = useState({});
+
         useEffect(() => { setFirebaseAvailable(window.firebaseReady === true); }, []);
         useEffect(() => {
             if (!firebaseAvailable) { setLoaded(true); return; }
@@ -85,8 +94,10 @@
             });
             return () => { cgRef.off(); scRef.off(); };
         }, [firebaseAvailable]);
+
         const updateCaregivers = (next) => { setCaregivers(next); if (firebaseAvailable) firebase.database().ref('caregivers').set(next); };
         const updateSchedule   = (next) => { setSchedule(next);   if (firebaseAvailable) firebase.database().ref('schedule').set(next); };
+
         const getSundays = () => {
             const sundays = [];
             const today = new Date(); today.setHours(0,0,0,0);
@@ -103,15 +114,17 @@
             for (let i = 0; i < 20; i++) { const fs = new Date(cur); fs.setDate(cur.getDate() + i * 7); sundays.push(fs); }
             return sundays;
         };
+
         const sundays = getSundays();
         const today   = new Date(); today.setHours(0,0,0,0);
         const formatDate        = d => d.toISOString().split('T')[0];
         const formatDisplayDate = d => `${d.toLocaleDateString('en-US', { month: 'short' })} ${d.getDate()}`;
+
         const assignCaregiver = (sunday, code) => { updateSchedule({ ...schedule, [formatDate(sunday)]: code }); setSelectedSunday(null); };
         const clearAssignment = (sunday) => { const next = { ...schedule }; delete next[formatDate(sunday)]; updateSchedule(next); };
-        const addCaregiver    = () => { if (!newCaregiver.name || !newCaregiver.code) return; updateCaregivers([...caregivers, { ...newCaregiver }]); setNewCaregiver({ name: '', code: '', color: PALETTE[0], phone: '' }); setShowAddCaregiver(false); };
+        const addCaregiver    = () => { if (!newCaregiver.name || !newCaregiver.code) return; updateCaregivers([...caregivers, { ...newCaregiver, phone: newCaregiver.phone ? toE164(newCaregiver.phone) : '' }]); setNewCaregiver({ name: '', code: '', color: PALETTE[0], phone: '' }); setShowAddCaregiver(false); };
         const changeColor     = (code, color) => { updateCaregivers(caregivers.map(c => c.code === code ? { ...c, color } : c)); setEditingColorFor(null); };
-        const savePhone       = (code) => { updateCaregivers(caregivers.map(c => c.code === code ? { ...c, phone: editPhoneValue.trim() } : c)); setEditingPhoneFor(null); setEditPhoneValue(''); };
+        const savePhone       = (code) => { updateCaregivers(caregivers.map(c => c.code === code ? { ...c, phone: toE164(editPhoneValue) } : c)); setEditingPhoneFor(null); setEditPhoneValue(''); };
         const deleteCaregiver = (code) => {
             if (!confirm(`Remove ${caregivers.find(c => c.code === code)?.name}?`)) return;
             updateCaregivers(caregivers.filter(c => c.code !== code));
@@ -126,7 +139,7 @@
             const firstName = cg.name.split(' ')[0];
             const display   = `${sunday.getMonth() + 1}/${sunday.getDate()}`;
             const msg = `Hi ${firstName}, reminder that you are scheduled for Papi's care this Sunday ${display} from 6:00–8:00 PM. App: https://papi-sundaygap.netlify.app`;
-            if (!confirm(`Send to ${cg.name} (${cg.phone})?\n\n"${msg}"`)) return;
+            if (!confirm(`Send to ${cg.name} (${toDisplay(cg.phone)})?\n\n"${msg}"`)) return;
             setSendingDate(dateKey);
             try {
                 const res    = await fetch('/.netlify/functions/send-sms', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ to: cg.phone, message: msg }) });
@@ -136,6 +149,7 @@
             } catch { alert('Could not reach messaging service. Try again.'); }
             finally { setSendingDate(null); }
         };
+
         return (
             <div style={{ fontFamily: '"Quicksand", sans-serif', background: 'linear-gradient(135deg,#f5f7fa 0%,#e8ecf1 100%)', minHeight: '100vh', padding: '6px', boxSizing: 'border-box' }}>
                 {/* Header */}
@@ -205,7 +219,7 @@
                         <div style={{ background: '#f7fafc', borderRadius: '6px', padding: '8px', marginBottom: '8px' }}>
                             <input type="text" placeholder="Name" value={newCaregiver.name} onChange={e => setNewCaregiver(p => ({ ...p, name: e.target.value }))} style={{ width: '100%', padding: '6px', marginBottom: '5px', border: '1.5px solid #e2e8f0', borderRadius: '5px', fontSize: '12px', boxSizing: 'border-box', fontFamily: 'Quicksand' }} />
                             <input type="text" placeholder="2-Letter Code (e.g. AL)" value={newCaregiver.code} onChange={e => setNewCaregiver(p => ({ ...p, code: e.target.value.toUpperCase().slice(0,2) }))} maxLength={2} style={{ width: '100%', padding: '6px', marginBottom: '5px', border: '1.5px solid #e2e8f0', borderRadius: '5px', fontSize: '12px', boxSizing: 'border-box', fontFamily: 'Quicksand' }} />
-                            <input type="tel" placeholder="Phone  e.g. +18135551234" value={newCaregiver.phone} onChange={e => setNewCaregiver(p => ({ ...p, phone: e.target.value }))} style={{ width: '100%', padding: '6px', marginBottom: '6px', border: '1.5px solid #e2e8f0', borderRadius: '5px', fontSize: '12px', boxSizing: 'border-box', fontFamily: 'Quicksand' }} />
+                            <input type="tel" placeholder="(813) 555-1234" value={newCaregiver.phone} onChange={e => setNewCaregiver(p => ({ ...p, phone: formatAsTyped(e.target.value) }))} style={{ width: '100%', padding: '6px', marginBottom: '6px', border: '1.5px solid #e2e8f0', borderRadius: '5px', fontSize: '12px', boxSizing: 'border-box', fontFamily: 'Quicksand' }} />
                             <div style={{ marginBottom: '6px' }}>
                                 <div style={{ fontSize: '11px', fontWeight: '600', color: '#718096', marginBottom: '4px' }}>Pick a color:</div>
                                 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(10,1fr)', gap: '3px' }}>
@@ -224,15 +238,15 @@
                                         <div style={{ fontSize: '11px', fontWeight: '600', color: '#2d3748', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{cg.name}</div>
                                         {editingPhoneFor === cg.code ? (
                                             <div style={{ display: 'flex', gap: '3px', marginTop: '2px' }}>
-                                                <input type="tel" value={editPhoneValue} onChange={e => setEditPhoneValue(e.target.value)} placeholder="+18135551234" style={{ flex: 1, padding: '2px 5px', borderRadius: '4px', border: '1.5px solid #e2e8f0', fontSize: '10px', fontFamily: 'Quicksand' }} />
+                                                <input type="tel" value={editPhoneValue} onChange={e => setEditPhoneValue(formatAsTyped(e.target.value))} placeholder="(813) 555-1234" style={{ flex: 1, padding: '2px 5px', borderRadius: '4px', border: '1.5px solid #e2e8f0', fontSize: '10px', fontFamily: 'Quicksand' }} />
                                                 <button onClick={() => savePhone(cg.code)} style={{ background: '#48bb78', color: 'white', border: 'none', borderRadius: '4px', padding: '2px 6px', fontSize: '10px', fontWeight: '600', cursor: 'pointer' }}>✓</button>
                                                 <button onClick={() => setEditingPhoneFor(null)} style={{ background: '#e2e8f0', color: '#4a5568', border: 'none', borderRadius: '4px', padding: '2px 6px', fontSize: '10px', fontWeight: '600', cursor: 'pointer' }}>✕</button>
                                             </div>
                                         ) : (
-                                            <div style={{ fontSize: '10px', color: cg.phone ? '#718096' : '#a0aec0' }}>{cg.phone || 'no phone — tap ✏️'}</div>
+                                            <div style={{ fontSize: '10px', color: cg.phone ? '#718096' : '#a0aec0' }}>{cg.phone ? toDisplay(cg.phone) : 'no phone — tap ✏️'}</div>
                                         )}
                                     </div>
-                                    <button onClick={() => { setEditingPhoneFor(cg.code); setEditPhoneValue(cg.phone || ''); }} style={{ background: 'transparent', border: 'none', cursor: 'pointer', fontSize: '12px', padding: '2px', flexShrink: 0 }}>✏️</button>
+                                    <button onClick={() => { setEditingPhoneFor(cg.code); setEditPhoneValue(toDisplay(cg.phone)); }} style={{ background: 'transparent', border: 'none', cursor: 'pointer', fontSize: '12px', padding: '2px', flexShrink: 0 }}>✏️</button>
                                     <button onClick={() => deleteCaregiver(cg.code)} style={{ background: 'none', border: 'none', color: '#e53e3e', cursor: 'pointer', padding: '1px', fontSize: '15px', lineHeight: 1, flexShrink: 0 }}>×</button>
                                 </div>
                             ))}
