@@ -162,12 +162,12 @@ When adding a new caregiver:
 
 ## How Phone Numbers Work
 
-- Each caregiver has an optional phone field stored in Firebase
+- Each caregiver has an optional phone field stored in Firebase in E.164 format (+1XXXXXXXXXX)
 - Tap ✏️ next to any caregiver to add or edit their phone number
-- Format must be E.164: +1XXXXXXXXXX (e.g. +18135551234)
-- Phone numbers are used exclusively by the SMS reminder feature
+- Type in any common format — the field auto-formats as you type to (012) 345-6789
+- Saved to Firebase as +10123456789 (E.164) automatically — no manual formatting needed
+- Displayed throughout the app in friendly format (012) 345-6789
 - If no phone is stored, tapping Remind shows an alert to add one first
-
 ---
 
 ## How SMS Reminders Work
@@ -228,3 +228,4 @@ When adding a new caregiver:
 12. Extended schedule from 22 to 24 weeks (20 future Sundays)
 13. Switched from drag-and-drop Netlify deploy to GitHub-connected auto-deploy
 14. Added netlify/functions/send-sms.js serverless function
+15. Added automatic phone number formatting — displays as (813) 555-1234, stores as +18135780433 in E.164 format
