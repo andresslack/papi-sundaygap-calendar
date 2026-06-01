@@ -1,0 +1,16 @@
+# Netlify configuration for papi-sundaygap-calendar
+# Static site (index.html at repo root) + a serverless function for SMS reminders.
+
+[build]
+  # Serve the site from the repo root (where index.html lives)
+  publish = "."
+  # Tell Netlify where the serverless functions are
+  functions = "netlify/functions"
+
+[build.environment]
+  # Node 18+ is required so the function's global fetch() works
+  NODE_VERSION = "18"
+
+[functions]
+  # Bundle functions with esbuild (handles the send-sms.js dependencies cleanly)
+  node_bundler = "esbuild"
