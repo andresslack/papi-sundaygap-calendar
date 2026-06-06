@@ -1,27 +1,13 @@
-﻿# test-send.http — manual tests for the SMS reminder function
-#
-# Use with the VS Code "REST Client" extension: click "Send Request" above each request.
-# Or adapt the curl / PowerShell commands at the bottom.
-#
-# NOTES:
-#  - Replace the placeholder "to" number with a REAL number you control before testing.
-#  - Do NOT commit a real phone number (this repo is public) — keep the placeholder in git.
-#  - SMS will only actually deliver once the Twilio A2P 10DLC campaign is APPROVED.
-#    Before approval, expect carrier filtering or an error response.
+﻿@baseUrl = https://papi-sundaygap.netlify.app
 
-@baseUrl = https://papi-sundaygap.netlify.app
-
-### 1) Sanity check — is the function deployed and reachable?
-# Expected: HTTP 405 "Method Not Allowed" (the function only accepts POST).
+### Sanity check - expect HTTP 405 Method Not Allowed
 GET {{baseUrl}}/.netlify/functions/send-sms
 
-### 2) Send a real test reminder.
-# Expected on success: HTTP 200  -> { "success": true, "sid": "SM..." }
-# Expected on failure: HTTP 400/500 -> { "error": "..." }
+### Send a test reminder - expect 200 {success, sid} or 4xx {error}
 POST {{baseUrl}}/.netlify/functions/send-sms
 Content-Type: application/json
 
 {
   "to": "+15555550100",
-  "message": "Test: Papi Sunday-Gap care reminder system is working."
+  "message": "Test: Papi care reminder working."
 }
