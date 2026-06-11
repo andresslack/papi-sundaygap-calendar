@@ -245,6 +245,7 @@
                                     <div style={{ flex: 1, minWidth: 0 }}>
                                         <div style={{ fontSize: '11px', fontWeight: '600', color: '#2d3748', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{cg.name}</div>
                                         {editingPhoneFor === cg.code ? (
+                                            <>
                                             <div style={{ display: 'flex', gap: '3px', marginTop: '2px' }}>
                                                 <input type="tel" value={editPhoneValue} onChange={e => setEditPhoneValue(formatAsTyped(e.target.value))} placeholder="(813) 555-1234" style={{ flex: 1, padding: '2px 5px', borderRadius: '4px', border: '1.5px solid #e2e8f0', fontSize: '10px', fontFamily: 'Quicksand' }} />
                                                 <button onClick={() => savePhone(cg.code)} style={{ background: '#48bb78', color: 'white', border: 'none', borderRadius: '4px', padding: '2px 6px', fontSize: '10px', fontWeight: '600', cursor: 'pointer' }}>✓</button>
@@ -254,6 +255,7 @@
                                                 <input type="checkbox" checked={editOptIn} onChange={e => setEditOptIn(e.target.checked)} style={{ accentColor: '#48bb78', width: '12px', height: '12px', flexShrink: 0 }} />
                                                 <span style={{ fontSize: '9px', color: '#4a5568', lineHeight: '1.4' }}>Caregiver has consented to SMS reminders</span>
                                             </label>
+                                            </>
                                         ) : (
                                             <div style={{ fontSize: '10px', color: cg.phone ? '#718096' : '#a0aec0' }}>
                                                 {cg.phone ? toDisplay(cg.phone) : 'no phone — tap ✏️'}
