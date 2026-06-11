@@ -189,11 +189,21 @@
                     <div style={{ borderTop: '1px solid #e2e8f0', paddingTop: '10px' }}>
                         <h3 style={{ margin: '0 0 6px 0', fontSize: '11px', fontWeight: '700', color: '#718096', textTransform: 'uppercase', letterSpacing: '0.5px' }}>📱 Send Reminders</h3>
                         <div style={{ display: 'flex', flexDirection: 'column', gap: '5px' }}>
-                            {sundays.filter(s => s >= upcomingSunday && schedule[formatDate(s)]).slice(0, 3).map(sunday => {
+                            {sundays.filter(s => s >= upcomingSunday).slice(0, 3).map(sunday => {
                                 const dateKey   = formatDate(sunday);
                                 const code      = schedule[dateKey];
                                 const cg        = caregivers.find(c => c.code === code);
-                                if (!cg) return null;
+                                if (!cg) return (
+                                    <div key={dateKey} style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '6px 8px', borderRadius: '7px', background: 'transparent', border: '2px solid #9b2c2c' }}>
+                                        <div style={{ width: '20px', height: '20px', borderRadius: '4px', border: '2px solid #9b2c2c', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                                            <span style={{ fontSize: '7px', fontWeight: '700', color: '#9b2c2c' }}>?</span>
+                                        </div>
+                                        <div style={{ flex: 1 }}>
+                                            <span style={{ fontSize: '12px', fontWeight: '700', color: '#9b2c2c', letterSpacing: '0.5px' }}>UNASSIGNED</span>
+                                            <span style={{ fontSize: '11px', color: '#9b2c2c', marginLeft: '6px', opacity: 0.8 }}>{formatDisplayDate(sunday)}</span>
+                                        </div>
+                                    </div>
+                                );
                                 const isSending = sendingDate === dateKey;
                                 const justSent  = sentDates[dateKey];
                                 return (
@@ -209,7 +219,6 @@
                                     </div>
                                 );
                             })}
-                            {sundays.filter(s => s >= upcomingSunday && schedule[formatDate(s)]).slice(0, 3).length === 0 && (<div style={{ fontSize: '11px', color: '#a0aec0', textAlign: 'center', padding: '8px' }}>No upcoming assignments</div>)}
                         </div>
                     </div>
                 </div>
