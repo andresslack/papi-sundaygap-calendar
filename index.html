@@ -67,10 +67,11 @@
         const [schedule,          setSchedule]          = useState({});
         const [selectedSunday,    setSelectedSunday]    = useState(null);
         const [showAddCaregiver,  setShowAddCaregiver]  = useState(false);
-        const [newCaregiver,      setNewCaregiver]      = useState({ name: '', code: '', color: PALETTE[0], phone: '' });
+        const [newCaregiver,      setNewCaregiver]      = useState({ name: '', code: '', color: PALETTE[0], phone: '', smsOptIn: false });
         const [editingColorFor,   setEditingColorFor]   = useState(null);
         const [editingPhoneFor,   setEditingPhoneFor]   = useState(null);
         const [editPhoneValue,    setEditPhoneValue]    = useState('');
+        const [editOptIn,         setEditOptIn]         = useState(false);
         const [loaded,            setLoaded]            = useState(false);
         const [firebaseAvailable, setFirebaseAvailable] = useState(false);
         const [sendingDate,       setSendingDate]       = useState(null);
@@ -83,7 +84,7 @@
             const scRef = firebase.database().ref('schedule');
             cgRef.on('value', snap => {
                 const data = snap.val();
-                if (data) { setCaregivers(data.map(c => ({ phone: '', ...c }))); }
+                if (data) { setCaregivers(data.map(c => ({ phone: '', smsOptIn: false, ...c }))); }
                 else { cgRef.set(initialCaregivers); }
                 setLoaded(true);
             });
@@ -111,20 +112,22 @@
                 past.unshift(ps);
             }
             sundays.push(...past);
-            for (let i = 0; i < 20; i++) { const fs = new Date(cur); fs.setDate(cur.getDate() + i * 7); sundays.push(fs); }
+            for (let i = 0; sundays.length < 30; i++) { const fs = new Date(cur); fs.setDate(cur.getDate() + i * 7); sundays.push(fs); }
             return sundays;
         };
 
         const sundays = getSundays();
         const today   = new Date(); today.setHours(0,0,0,0);
+        const daysUntilSunday = (7 - today.getDay()) % 7;
+        const upcomingSunday  = new Date(today); upcomingSunday.setDate(today.getDate() + daysUntilSunday);
         const formatDate        = d => d.toISOString().split('T')[0];
         const formatDisplayDate = d => `${d.toLocaleDateString('en-US', { month: 'short' })} ${d.getDate()}`;
 
         const assignCaregiver = (sunday, code) => { updateSchedule({ ...schedule, [formatDate(sunday)]: code }); setSelectedSunday(null); };
         const clearAssignment = (sunday) => { const next = { ...schedule }; delete next[formatDate(sunday)]; updateSchedule(next); };
-        const addCaregiver    = () => { if (!newCaregiver.name || !newCaregiver.code) return; updateCaregivers([...caregivers, { ...newCaregiver, phone: newCaregiver.phone ? toE164(newCaregiver.phone) : '' }]); setNewCaregiver({ name: '', code: '', color: PALETTE[0], phone: '' }); setShowAddCaregiver(false); };
+        const addCaregiver    = () => { if (!newCaregiver.name || !newCaregiver.code) return; updateCaregivers([...caregivers, { ...newCaregiver, phone: newCaregiver.phone ? toE164(newCaregiver.phone) : '' }]); setNewCaregiver({ name: '', code: '', color: PALETTE[0], phone: '', smsOptIn: false }); setShowAddCaregiver(false); };
         const changeColor     = (code, color) => { updateCaregivers(caregivers.map(c => c.code === code ? { ...c, color } : c)); setEditingColorFor(null); };
-        const savePhone       = (code) => { updateCaregivers(caregivers.map(c => c.code === code ? { ...c, phone: toE164(editPhoneValue) } : c)); setEditingPhoneFor(null); setEditPhoneValue(''); };
+        const savePhone       = (code) => { updateCaregivers(caregivers.map(c => c.code === code ? { ...c, phone: toE164(editPhoneValue), smsOptIn: editOptIn } : c)); setEditingPhoneFor(null); setEditPhoneValue(''); setEditOptIn(false); };
         const deleteCaregiver = (code) => {
             if (!confirm(`Remove ${caregivers.find(c => c.code === code)?.name}?`)) return;
             updateCaregivers(caregivers.filter(c => c.code !== code));
@@ -136,6 +139,7 @@
             const cg      = caregivers.find(c => c.code === code);
             if (!cg) return;
             if (!cg.phone) { alert(`No phone for ${cg.name}. Tap ✏️ to add one.`); return; }
+            if (!cg.smsOptIn && !confirm(`⚠️ ${cg.name} has no confirmed SMS consent on file.\n\nHave they agreed to receive text reminders? (Tap OK to send anyway)`)) return;
             const firstName = cg.name.split(' ')[0];
             const display   = `${sunday.getMonth() + 1}/${sunday.getDate()}`;
             const msg = `Hi ${firstName}, reminder that you are scheduled for Papi's care this Sunday ${display} from 6:00–8:00 PM. App: https://papi-sundaygap.netlify.app`;
@@ -170,10 +174,10 @@
                             const dateKey   = formatDate(sunday);
                             const code      = schedule[dateKey];
                             const caregiver = caregivers.find(c => c.code === code);
-                            const isToday   = sunday.getTime() === today.getTime();
+                            const isUpcoming = sunday.getTime() === upcomingSunday.getTime();
                             return (
                                 <div key={dateKey} onClick={() => setSelectedSunday(sunday)}
-                                    style={{ aspectRatio: '1', borderRadius: '7px', border: isToday ? '2px solid #667eea' : '1px solid #e2e8f0', background: caregiver ? caregiver.color : '#ffffff', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', transition: 'all 0.2s ease', boxShadow: caregiver ? '0 2px 4px rgba(0,0,0,0.15)' : '0 1px 2px rgba(0,0,0,0.05)', transform: selectedSunday === sunday ? 'scale(0.95)' : 'scale(1)' }}
+                                    style={{ aspectRatio: '1', borderRadius: '7px', border: isUpcoming ? '3px solid #000000' : '1px solid #e2e8f0', background: caregiver ? caregiver.color : '#ffffff', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', transition: 'all 0.2s ease', boxShadow: caregiver ? '0 2px 4px rgba(0,0,0,0.15)' : '0 1px 2px rgba(0,0,0,0.05)', transform: selectedSunday === sunday ? 'scale(0.95)' : 'scale(1)' }}
                                     onMouseEnter={e => { if (!caregiver) e.currentTarget.style.background = '#f7fafc'; }}
                                     onMouseLeave={e => { if (!caregiver) e.currentTarget.style.background = '#ffffff'; }}>
                                     <div style={{ fontSize: '11px', fontWeight: '600', color: caregiver ? '#fff' : '#718096', marginBottom: '2px' }}>{formatDisplayDate(sunday)}</div>
@@ -220,6 +224,10 @@
                             <input type="text" placeholder="Name" value={newCaregiver.name} onChange={e => setNewCaregiver(p => ({ ...p, name: e.target.value }))} style={{ width: '100%', padding: '6px', marginBottom: '5px', border: '1.5px solid #e2e8f0', borderRadius: '5px', fontSize: '12px', boxSizing: 'border-box', fontFamily: 'Quicksand' }} />
                             <input type="text" placeholder="2-Letter Code (e.g. AL)" value={newCaregiver.code} onChange={e => setNewCaregiver(p => ({ ...p, code: e.target.value.toUpperCase().slice(0,2) }))} maxLength={2} style={{ width: '100%', padding: '6px', marginBottom: '5px', border: '1.5px solid #e2e8f0', borderRadius: '5px', fontSize: '12px', boxSizing: 'border-box', fontFamily: 'Quicksand' }} />
                             <input type="tel" placeholder="(813) 555-1234" value={newCaregiver.phone} onChange={e => setNewCaregiver(p => ({ ...p, phone: formatAsTyped(e.target.value) }))} style={{ width: '100%', padding: '6px', marginBottom: '6px', border: '1.5px solid #e2e8f0', borderRadius: '5px', fontSize: '12px', boxSizing: 'border-box', fontFamily: 'Quicksand' }} />
+                            <label style={{ display: 'flex', alignItems: 'flex-start', gap: '6px', marginBottom: '8px', cursor: 'pointer', padding: '7px 8px', background: newCaregiver.smsOptIn ? '#f0fff4' : '#fffbeb', borderRadius: '6px', border: `1px solid ${newCaregiver.smsOptIn ? '#9ae6b4' : '#f6e05e'}` }}>
+                                <input type="checkbox" checked={newCaregiver.smsOptIn} onChange={e => setNewCaregiver(p => ({ ...p, smsOptIn: e.target.checked }))} style={{ marginTop: '2px', flexShrink: 0, accentColor: '#48bb78', width: '13px', height: '13px' }} />
+                                <span style={{ fontSize: '10px', color: '#4a5568', lineHeight: '1.5' }}>I confirm this caregiver has consented to receive SMS shift reminders from this number. Msg &amp; Data rates may apply. Reply STOP to opt out.</span>
+                            </label>
                             <div style={{ marginBottom: '6px' }}>
                                 <div style={{ fontSize: '11px', fontWeight: '600', color: '#718096', marginBottom: '4px' }}>Pick a color:</div>
                                 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(10,1fr)', gap: '3px' }}>
@@ -240,13 +248,20 @@
                                             <div style={{ display: 'flex', gap: '3px', marginTop: '2px' }}>
                                                 <input type="tel" value={editPhoneValue} onChange={e => setEditPhoneValue(formatAsTyped(e.target.value))} placeholder="(813) 555-1234" style={{ flex: 1, padding: '2px 5px', borderRadius: '4px', border: '1.5px solid #e2e8f0', fontSize: '10px', fontFamily: 'Quicksand' }} />
                                                 <button onClick={() => savePhone(cg.code)} style={{ background: '#48bb78', color: 'white', border: 'none', borderRadius: '4px', padding: '2px 6px', fontSize: '10px', fontWeight: '600', cursor: 'pointer' }}>✓</button>
-                                                <button onClick={() => setEditingPhoneFor(null)} style={{ background: '#e2e8f0', color: '#4a5568', border: 'none', borderRadius: '4px', padding: '2px 6px', fontSize: '10px', fontWeight: '600', cursor: 'pointer' }}>✕</button>
+                                                <button onClick={() => { setEditingPhoneFor(null); setEditOptIn(false); }} style={{ background: '#e2e8f0', color: '#4a5568', border: 'none', borderRadius: '4px', padding: '2px 6px', fontSize: '10px', fontWeight: '600', cursor: 'pointer' }}>✕</button>
                                             </div>
+                                            <label style={{ display: 'flex', alignItems: 'center', gap: '4px', marginTop: '4px', cursor: 'pointer', padding: '4px 6px', background: editOptIn ? '#f0fff4' : '#fffbeb', borderRadius: '4px', border: `1px solid ${editOptIn ? '#9ae6b4' : '#f6e05e'}` }}>
+                                                <input type="checkbox" checked={editOptIn} onChange={e => setEditOptIn(e.target.checked)} style={{ accentColor: '#48bb78', width: '12px', height: '12px', flexShrink: 0 }} />
+                                                <span style={{ fontSize: '9px', color: '#4a5568', lineHeight: '1.4' }}>Caregiver has consented to SMS reminders</span>
+                                            </label>
                                         ) : (
-                                            <div style={{ fontSize: '10px', color: cg.phone ? '#718096' : '#a0aec0' }}>{cg.phone ? toDisplay(cg.phone) : 'no phone — tap ✏️'}</div>
+                                            <div style={{ fontSize: '10px', color: cg.phone ? '#718096' : '#a0aec0' }}>
+                                                {cg.phone ? toDisplay(cg.phone) : 'no phone — tap ✏️'}
+                                                {cg.phone && <span style={{ marginLeft: '5px', fontSize: '9px', fontWeight: '600', color: cg.smsOptIn ? '#38a169' : '#e53e3e' }}>{cg.smsOptIn ? '● SMS ✓' : '● no consent'}</span>}
+                                            </div>
                                         )}
                                     </div>
-                                    <button onClick={() => { setEditingPhoneFor(cg.code); setEditPhoneValue(toDisplay(cg.phone)); }} style={{ background: 'transparent', border: 'none', cursor: 'pointer', fontSize: '12px', padding: '2px', flexShrink: 0 }}>✏️</button>
+                                    <button onClick={() => { setEditingPhoneFor(cg.code); setEditPhoneValue(toDisplay(cg.phone)); setEditOptIn(cg.smsOptIn || false); }} style={{ background: 'transparent', border: 'none', cursor: 'pointer', fontSize: '12px', padding: '2px', flexShrink: 0 }}>✏️</button>
                                     <button onClick={() => deleteCaregiver(cg.code)} style={{ background: 'none', border: 'none', color: '#e53e3e', cursor: 'pointer', padding: '1px', fontSize: '15px', lineHeight: 1, flexShrink: 0 }}>×</button>
                                 </div>
                             ))}
