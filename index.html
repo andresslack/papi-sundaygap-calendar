@@ -9,6 +9,7 @@
     <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
     <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
     <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-database.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-auth.js"></script>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Quicksand:wght@400;500;600;700&display=swap" rel="stylesheet">
@@ -80,20 +81,23 @@
         useEffect(() => { setFirebaseAvailable(window.firebaseReady === true); }, []);
         useEffect(() => {
             if (!firebaseAvailable) { setLoaded(true); return; }
-            const cgRef = firebase.database().ref('caregivers');
-            const scRef = firebase.database().ref('schedule');
-            cgRef.on('value', snap => {
-                const data = snap.val();
-                if (data) { setCaregivers(data.map(c => { const m = { phone: '', smsOptIn: false, consentStatus: 'none', ...c }; if (!c.consentStatus) m.consentStatus = c.smsOptIn ? 'confirmed' : 'none'; m.smsOptIn = m.consentStatus === 'confirmed'; return m; })); }
-                else { cgRef.set(initialCaregivers); }
-                setLoaded(true);
-            });
-            scRef.on('value', snap => {
-                let s = snap.val() || {};
-                if (!s['2026-04-12']) { s['2026-04-12'] = 'AN'; scRef.set(s); }
-                setSchedule(s);
-            });
-            return () => { cgRef.off(); scRef.off(); };
+            let cgRef, scRef;
+            firebase.auth().signInAnonymously().then(() => {
+                cgRef = firebase.database().ref('caregivers');
+                scRef = firebase.database().ref('schedule');
+                cgRef.on('value', snap => {
+                    const data = snap.val();
+                    if (data) { setCaregivers(data.map(c => { const m = { phone: '', smsOptIn: false, consentStatus: 'none', ...c }; if (!c.consentStatus) m.consentStatus = c.smsOptIn ? 'confirmed' : 'none'; m.smsOptIn = m.consentStatus === 'confirmed'; return m; })); }
+                    else { cgRef.set(initialCaregivers); }
+                    setLoaded(true);
+                });
+                scRef.on('value', snap => {
+                    let s = snap.val() || {};
+                    if (!s['2026-04-12']) { s['2026-04-12'] = 'AN'; scRef.set(s); }
+                    setSchedule(s);
+                });
+            }).catch(err => { console.error('Auth error:', err); setLoaded(true); });
+            return () => { if (cgRef) cgRef.off(); if (scRef) scRef.off(); };
         }, [firebaseAvailable]);
 
         const updateCaregivers = (next) => { setCaregivers(next); if (firebaseAvailable) firebase.database().ref('caregivers').set(next); };
@@ -147,7 +151,7 @@
             }
             const firstName = cg.name.split(' ')[0];
             const display   = `${sunday.getMonth() + 1}/${sunday.getDate()}`;
-            const msg = `Hi ${firstName}, reminder that you are scheduled for Papi's care this Sunday ${display} from 6:00–8:00 PM. App: https://papi-sundaygap.netlify.app`;
+            const msg = `Hi ${firstName}, reminder that you are scheduled for Papi's care this Sunday ${display} from 6:00-8:00 PM. App: https://papi-sundaygap.netlify.app`;
             if (!confirm(`Send to ${cg.name} (${toDisplay(cg.phone)})?\n\n"${msg}"`)) return;
             setSendingDate(dateKey);
             try {
@@ -162,7 +166,7 @@
             const cg = caregivers.find(c => c.code === code);
             if (!cg) return;
             if (!cg.phone) { alert(`Add a phone number for ${cg.name} first (tap ✏️).`); return; }
-            const msg = `Sunday Care Schedule: you've been added to receive reminders for Papi's Sunday care shift (6–8 PM). Reply YES to confirm, STOP to opt out. Msg & data rates may apply. 1 msg/week. Privacy: https://papi-sundaygap.netlify.app/privacy-policy.html`;
+            const msg = `Sunday Care Schedule: you've been added to receive reminders for Papi's Sunday care shift (6-8 PM). Reply YES to confirm, STOP to opt out. Msg & data rates may apply. 1 msg/week. Privacy: https://papi-sundaygap.netlify.app/privacy-policy.html`;
             if (!confirm(`Send a confirmation request to ${cg.name} (${toDisplay(cg.phone)})?\n\nThey must reply YES from their phone before any reminders can be sent.\n\n"${msg}"`)) return;
             setSendingDate('confirm-' + code);
             try {
@@ -220,7 +224,7 @@
                                         </div>
                                         <div style={{ flex: 1 }}>
                                             <span style={{ fontSize: '12px', fontWeight: '700', color: '#9b2c2c', letterSpacing: '0.5px' }}>UNASSIGNED</span>
-                                            <span style={{ fontSize: '11px', color: '#9b2c2c', marginLeft: '6px', opacity: 0.8 }}>{formatDisplayDate(sunday)}</span>
+                                            <span style={{ fontSize: '13px', color: '#9b2c2c', marginLeft: '6px', opacity: 0.9 }}>{formatDisplayDate(sunday)}</span>
                                         </div>
                                     </div>
                                 );
@@ -231,7 +235,7 @@
                                         <div style={{ width: '20px', height: '20px', borderRadius: '4px', background: cg.color, display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'white', fontSize: '8px', fontWeight: '700', flexShrink: 0 }}>{cg.code}</div>
                                         <div style={{ flex: 1 }}>
                                             <span style={{ fontSize: '12px', fontWeight: '600', color: '#2d3748' }}>{cg.name}</span>
-                                            <span style={{ fontSize: '11px', color: '#718096', marginLeft: '6px' }}>{formatDisplayDate(sunday)}</span>
+                                            <span style={{ fontSize: '13px', color: '#4a5568', marginLeft: '6px' }}>{formatDisplayDate(sunday)}</span>
                                         </div>
                                         <button onClick={() => sendReminder(sunday)} disabled={isSending} style={{ background: justSent ? '#48bb78' : cg.color, color: 'white', border: 'none', borderRadius: '6px', padding: '4px 9px', fontSize: '11px', fontWeight: '600', cursor: isSending ? 'wait' : 'pointer', whiteSpace: 'nowrap', fontFamily: 'Quicksand', transition: 'background 0.2s' }}>
                                             {isSending ? '...' : justSent ? '✓ Sent' : '📱 Remind'}
