@@ -84,7 +84,7 @@
             const scRef = firebase.database().ref('schedule');
             cgRef.on('value', snap => {
                 const data = snap.val();
-                if (data) { setCaregivers(data.map(c => ({ phone: '', smsOptIn: false, ...c }))); }
+                if (data) { setCaregivers(data.map(c => { const m = { phone: '', smsOptIn: false, consentStatus: 'none', ...c }; if (!c.consentStatus) m.consentStatus = c.smsOptIn ? 'confirmed' : 'none'; m.smsOptIn = m.consentStatus === 'confirmed'; return m; })); }
                 else { cgRef.set(initialCaregivers); }
                 setLoaded(true);
             });
@@ -125,9 +125,9 @@
 
         const assignCaregiver = (sunday, code) => { updateSchedule({ ...schedule, [formatDate(sunday)]: code }); setSelectedSunday(null); };
         const clearAssignment = (sunday) => { const next = { ...schedule }; delete next[formatDate(sunday)]; updateSchedule(next); };
-        const addCaregiver    = () => { if (!newCaregiver.name || !newCaregiver.code) return; updateCaregivers([...caregivers, { ...newCaregiver, phone: newCaregiver.phone ? toE164(newCaregiver.phone) : '' }]); setNewCaregiver({ name: '', code: '', color: PALETTE[0], phone: '', smsOptIn: false }); setShowAddCaregiver(false); };
+        const addCaregiver    = () => { if (!newCaregiver.name || !newCaregiver.code) return; const { smsOptIn, ...rest } = newCaregiver; updateCaregivers([...caregivers, { ...rest, phone: newCaregiver.phone ? toE164(newCaregiver.phone) : '', smsOptIn: false, consentStatus: 'none' }]); setNewCaregiver({ name: '', code: '', color: PALETTE[0], phone: '', smsOptIn: false }); setShowAddCaregiver(false); };
         const changeColor     = (code, color) => { updateCaregivers(caregivers.map(c => c.code === code ? { ...c, color } : c)); setEditingColorFor(null); };
-        const savePhone       = (code) => { updateCaregivers(caregivers.map(c => c.code === code ? { ...c, phone: toE164(editPhoneValue), smsOptIn: editOptIn } : c)); setEditingPhoneFor(null); setEditPhoneValue(''); setEditOptIn(false); };
+        const savePhone       = (code) => { updateCaregivers(caregivers.map(c => { if (c.code !== code) return c; const newPhone = toE164(editPhoneValue); const changed = newPhone !== c.phone; return { ...c, phone: newPhone, consentStatus: changed ? 'none' : (c.consentStatus || 'none'), smsOptIn: changed ? false : c.smsOptIn }; })); setEditingPhoneFor(null); setEditPhoneValue(''); setEditOptIn(false); };
         const deleteCaregiver = (code) => {
             if (!confirm(`Remove ${caregivers.find(c => c.code === code)?.name}?`)) return;
             updateCaregivers(caregivers.filter(c => c.code !== code));
@@ -139,7 +139,12 @@
             const cg      = caregivers.find(c => c.code === code);
             if (!cg) return;
             if (!cg.phone) { alert(`No phone for ${cg.name}. Tap ✏️ to add one.`); return; }
-            if (!cg.smsOptIn && !confirm(`⚠️ ${cg.name} has no confirmed SMS consent on file.\n\nHave they agreed to receive text reminders? (Tap OK to send anyway)`)) return;
+            if (cg.consentStatus !== 'confirmed') {
+                if (cg.consentStatus === 'pending') alert(`${cg.name} hasn't confirmed yet — they need to reply YES to the confirmation text before reminders can be sent.`);
+                else if (cg.consentStatus === 'opted_out') alert(`${cg.name} has opted out of text messages and cannot be sent reminders.`);
+                else alert(`${cg.name} hasn't confirmed SMS consent. Tap ✏️ next to their name and send a confirmation request — they must reply YES first.`);
+                return;
+            }
             const firstName = cg.name.split(' ')[0];
             const display   = `${sunday.getMonth() + 1}/${sunday.getDate()}`;
             const msg = `Hi ${firstName}, reminder that you are scheduled for Papi's care this Sunday ${display} from 6:00–8:00 PM. App: https://papi-sundaygap.netlify.app`;
@@ -149,6 +154,21 @@
                 const res    = await fetch('/.netlify/functions/send-sms', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ to: cg.phone, message: msg }) });
                 const result = await res.json();
                 if (res.ok) { setSentDates(prev => ({ ...prev, [dateKey]: true })); setTimeout(() => setSentDates(prev => { const n = {...prev}; delete n[dateKey]; return n; }), 4000); }
+                else { alert(`Failed: ${result.error}`); }
+            } catch { alert('Could not reach messaging service. Try again.'); }
+            finally { setSendingDate(null); }
+        };
+        const sendConfirmation = async (code) => {
+            const cg = caregivers.find(c => c.code === code);
+            if (!cg) return;
+            if (!cg.phone) { alert(`Add a phone number for ${cg.name} first (tap ✏️).`); return; }
+            const msg = `Sunday Care Schedule: you've been added to receive reminders for Papi's Sunday care shift (6–8 PM). Reply YES to confirm, STOP to opt out. Msg & data rates may apply. 1 msg/week. Privacy: https://papi-sundaygap.netlify.app/privacy-policy.html`;
+            if (!confirm(`Send a confirmation request to ${cg.name} (${toDisplay(cg.phone)})?\n\nThey must reply YES from their phone before any reminders can be sent.\n\n"${msg}"`)) return;
+            setSendingDate('confirm-' + code);
+            try {
+                const res    = await fetch('/.netlify/functions/send-sms', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ to: cg.phone, message: msg }) });
+                const result = await res.json();
+                if (res.ok) { updateCaregivers(caregivers.map(c => c.code === code ? { ...c, consentStatus: 'pending', smsOptIn: false } : c)); }
                 else { alert(`Failed: ${result.error}`); }
             } catch { alert('Could not reach messaging service. Try again.'); }
             finally { setSendingDate(null); }
@@ -235,7 +255,7 @@
                             <input type="tel" placeholder="(813) 555-1234" value={newCaregiver.phone} onChange={e => setNewCaregiver(p => ({ ...p, phone: formatAsTyped(e.target.value) }))} style={{ width: '100%', padding: '6px', marginBottom: '6px', border: '1.5px solid #e2e8f0', borderRadius: '5px', fontSize: '12px', boxSizing: 'border-box', fontFamily: 'Quicksand' }} />
                             <label style={{ display: 'flex', alignItems: 'flex-start', gap: '6px', marginBottom: '8px', cursor: 'pointer', padding: '7px 8px', background: newCaregiver.smsOptIn ? '#f0fff4' : '#fffbeb', borderRadius: '6px', border: `1px solid ${newCaregiver.smsOptIn ? '#9ae6b4' : '#f6e05e'}` }}>
                                 <input type="checkbox" checked={newCaregiver.smsOptIn} onChange={e => setNewCaregiver(p => ({ ...p, smsOptIn: e.target.checked }))} style={{ marginTop: '2px', flexShrink: 0, accentColor: '#48bb78', width: '13px', height: '13px' }} />
-                                <span style={{ fontSize: '10px', color: '#4a5568', lineHeight: '1.5' }}>I confirm this caregiver has consented to receive SMS shift reminders from this number. Msg &amp; Data rates may apply. Reply STOP to opt out.</span>
+                                <span style={{ fontSize: '10px', color: '#4a5568', lineHeight: '1.5' }}>I have this caregiver's permission to add their number. After saving, send them a confirmation text — they must reply YES before any reminders go out.</span>
                             </label>
                             <div style={{ marginBottom: '6px' }}>
                                 <div style={{ fontSize: '11px', fontWeight: '600', color: '#718096', marginBottom: '4px' }}>Pick a color:</div>
@@ -260,15 +280,19 @@
                                                 <button onClick={() => savePhone(cg.code)} style={{ background: '#48bb78', color: 'white', border: 'none', borderRadius: '4px', padding: '2px 6px', fontSize: '10px', fontWeight: '600', cursor: 'pointer' }}>✓</button>
                                                 <button onClick={() => { setEditingPhoneFor(null); setEditOptIn(false); }} style={{ background: '#e2e8f0', color: '#4a5568', border: 'none', borderRadius: '4px', padding: '2px 6px', fontSize: '10px', fontWeight: '600', cursor: 'pointer' }}>✕</button>
                                             </div>
-                                            <label style={{ display: 'flex', alignItems: 'center', gap: '4px', marginTop: '4px', cursor: 'pointer', padding: '4px 6px', background: editOptIn ? '#f0fff4' : '#fffbeb', borderRadius: '4px', border: `1px solid ${editOptIn ? '#9ae6b4' : '#f6e05e'}` }}>
-                                                <input type="checkbox" checked={editOptIn} onChange={e => setEditOptIn(e.target.checked)} style={{ accentColor: '#48bb78', width: '12px', height: '12px', flexShrink: 0 }} />
-                                                <span style={{ fontSize: '9px', color: '#4a5568', lineHeight: '1.4' }}>Caregiver has consented to SMS reminders</span>
-                                            </label>
+                                            <div style={{ fontSize: '9px', color: '#718096', marginTop: '4px', lineHeight: '1.4', padding: '4px 6px', background: '#f7fafc', borderRadius: '4px' }}>Changing the number resets consent. After saving, tap "Send confirm" — the caregiver must reply YES.</div>
                                             </>
                                         ) : (
                                             <div style={{ fontSize: '10px', color: cg.phone ? '#718096' : '#a0aec0' }}>
                                                 {cg.phone ? toDisplay(cg.phone) : 'no phone — tap ✏️'}
-                                                {cg.phone && <span style={{ marginLeft: '5px', fontSize: '9px', fontWeight: '600', color: cg.smsOptIn ? '#38a169' : '#e53e3e' }}>{cg.smsOptIn ? '● SMS ✓' : '● no consent'}</span>}
+                                                {cg.phone && (() => {
+                                                    const st = cg.consentStatus || (cg.smsOptIn ? 'confirmed' : 'none');
+                                                    const badge = { confirmed: ['● SMS ✓', '#38a169'], pending: ['● awaiting YES', '#d69e2e'], opted_out: ['● opted out', '#e53e3e'], none: ['● no consent', '#e53e3e'] }[st] || ['● no consent', '#e53e3e'];
+                                                    return <span style={{ marginLeft: '5px', fontSize: '9px', fontWeight: '600', color: badge[1] }}>{badge[0]}</span>;
+                                                })()}
+                                                {cg.phone && (cg.consentStatus || 'none') !== 'confirmed' && (
+                                                    <button onClick={() => sendConfirmation(cg.code)} disabled={sendingDate === 'confirm-' + cg.code} style={{ marginLeft: '6px', background: '#667eea', color: 'white', border: 'none', borderRadius: '4px', padding: '1px 6px', fontSize: '9px', fontWeight: '600', cursor: 'pointer', fontFamily: 'Quicksand' }}>{sendingDate === 'confirm-' + cg.code ? '...' : (cg.consentStatus === 'pending' ? 'Resend' : 'Send confirm')}</button>
+                                                )}
                                             </div>
                                         )}
                                     </div>

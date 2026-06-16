@@ -81,7 +81,36 @@ Realtime Database → Rules and ensure they are set to:
 
 Account SID: (stored in Netlify environment variables)
 Phone number: +18135780433 (813) 578-0433
-Serverless function: netlify/functions/send-sms.js
+Serverless functions:
+- netlify/functions/send-sms.js   — sends reminders AND the opt-in confirmation text
+- netlify/functions/sms-reply.js  — inbound webhook: handles YES/STOP/HELP replies (double opt-in)
+
+### Double opt-in / consent flow (required for A2P approval)
+The May 2026 campaign was REJECTED for opt-in. Carriers require the *recipient*
+to opt in — an organizer checkbox is not valid consent. The app now uses a
+double opt-in:
+
+1. Organizer adds a caregiver (name, phone) — consentStatus starts "none".
+2. Organizer taps "Send confirm" → app sends a confirmation text via send-sms.js;
+   consentStatus → "pending" ("awaiting YES" badge).
+3. Caregiver replies YES → sms-reply.js sets consentStatus → "confirmed" in
+   Firebase. The app (live Firebase listener) flips the badge to "SMS ✓".
+4. Reminders can ONLY be sent to caregivers with consentStatus === "confirmed".
+   There is no "send anyway" override.
+5. Caregiver replies STOP → consentStatus → "opted_out"; reminders blocked.
+6. Changing a caregiver's phone number resets consentStatus to "none"
+   (the new number must be re-confirmed).
+
+consentStatus values stored per caregiver in Firebase: none | pending | confirmed | opted_out
+(legacy smsOptIn boolean is kept in sync: true only when confirmed).
+
+### ⚠️ REQUIRED: configure the inbound webhook in Twilio
+Twilio Console → Phone Numbers → Manage → Active Numbers → +1 813 578 0433 →
+Messaging → "A MESSAGE COMES IN" → Webhook, HTTP POST:
+    https://papi-sundaygap.netlify.app/.netlify/functions/sms-reply
+Without this, caregiver YES/STOP replies are never recorded and reminders stay blocked.
+sms-reply.js validates the X-Twilio-Signature, so TWILIO_AUTH_TOKEN must be set
+correctly in Netlify (see the pending token-regeneration note above).
 
 ### A2P 10DLC Registration Status (as of May 15, 2026)
 - Brand registration: IN REVIEW (submitted May 15, 2026)
