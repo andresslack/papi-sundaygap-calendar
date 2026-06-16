@@ -100,19 +100,12 @@
         const updateSchedule   = (next) => { setSchedule(next);   if (firebaseAvailable) firebase.database().ref('schedule').set(next); };
 
         const getSundays = () => {
-            const sundays = [];
             const today = new Date(); today.setHours(0,0,0,0);
-            const startDate = new Date('2026-04-12'); startDate.setHours(0,0,0,0);
-            let cur = new Date(today);
-            while (cur.getDay() !== 0) cur.setDate(cur.getDate() - 1);
-            const past = [];
-            for (let i = 1; i <= 12; i++) {
-                const ps = new Date(cur); ps.setDate(cur.getDate() - i * 7);
-                if (ps < startDate) break;
-                past.unshift(ps);
-            }
-            sundays.push(...past);
-            for (let i = 0; sundays.length < 30; i++) { const fs = new Date(cur); fs.setDate(cur.getDate() + i * 7); sundays.push(fs); }
+            const daysUntilSunday = (7 - today.getDay()) % 7;
+            const upcoming = new Date(today); upcoming.setDate(today.getDate() + daysUntilSunday);
+            const sundays = [];
+            for (let i = 12; i >= 1; i--) { const s = new Date(upcoming); s.setDate(upcoming.getDate() - i * 7); sundays.push(s); }
+            for (let i = 0; i < 18; i++) { const s = new Date(upcoming); s.setDate(upcoming.getDate() + i * 7); sundays.push(s); }
             return sundays;
         };
 
