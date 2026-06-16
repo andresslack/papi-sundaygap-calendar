@@ -103,9 +103,13 @@
             const today = new Date(); today.setHours(0,0,0,0);
             const daysUntilSunday = (7 - today.getDay()) % 7;
             const upcoming = new Date(today); upcoming.setDate(today.getDate() + daysUntilSunday);
+            const ref = new Date('2025-01-05'); // Jan 5, 2025 = Sunday, column 1 anchor
+            const weeksSinceRef = Math.round((upcoming - ref) / (7 * 24 * 60 * 60 * 1000));
+            const col = ((weeksSinceRef % 6) + 6) % 6; // 0–5, upcoming Sunday's column index
+            const before = 12 + col; // upcoming lands in middle row at its correct column
             const sundays = [];
-            for (let i = 12; i >= 1; i--) { const s = new Date(upcoming); s.setDate(upcoming.getDate() - i * 7); sundays.push(s); }
-            for (let i = 0; i < 18; i++) { const s = new Date(upcoming); s.setDate(upcoming.getDate() + i * 7); sundays.push(s); }
+            for (let i = before; i >= 1; i--) { const s = new Date(upcoming); s.setDate(upcoming.getDate() - i * 7); sundays.push(s); }
+            for (let i = 0; i < (30 - before); i++) { const s = new Date(upcoming); s.setDate(upcoming.getDate() + i * 7); sundays.push(s); }
             return sundays;
         };
 
