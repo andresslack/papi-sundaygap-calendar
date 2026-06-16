@@ -76,6 +76,7 @@
         const [firebaseAvailable, setFirebaseAvailable] = useState(false);
         const [sendingDate,       setSendingDate]       = useState(null);
         const [sentDates,         setSentDates]         = useState({});
+        const [showCaregivers,    setShowCaregivers]    = useState(false);
 
         useEffect(() => { setFirebaseAvailable(window.firebaseReady === true); }, []);
         useEffect(() => {
@@ -240,11 +241,14 @@
                 </div>
                 {/* Caregivers */}
                 <div style={{ background: 'white', borderRadius: '8px', padding: '8px', boxShadow: '0 2px 4px rgba(0,0,0,0.08)' }}>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: showCaregivers ? '8px' : '0' }}>
                         <h2 style={{ margin: 0, fontSize: '13px', fontWeight: '700', color: '#2d3748' }}>Caregivers</h2>
-                        <button onClick={() => setShowAddCaregiver(!showAddCaregiver)} style={{ background: '#667eea', color: 'white', border: 'none', borderRadius: '5px', padding: '5px 8px', fontSize: '11px', fontWeight: '600', cursor: 'pointer', fontFamily: 'Quicksand' }}>{showAddCaregiver ? 'Cancel' : '+ Add'}</button>
+                        <div style={{ display: 'flex', gap: '5px' }}>
+                            <button onClick={() => { setShowCaregivers(v => !v); setShowAddCaregiver(false); }} style={{ background: '#e2e8f0', color: '#4a5568', border: 'none', borderRadius: '5px', padding: '5px 8px', fontSize: '11px', fontWeight: '600', cursor: 'pointer', fontFamily: 'Quicksand' }}>{showCaregivers ? 'Hide' : 'Open'}</button>
+                            {showCaregivers && <button onClick={() => setShowAddCaregiver(!showAddCaregiver)} style={{ background: '#667eea', color: 'white', border: 'none', borderRadius: '5px', padding: '5px 8px', fontSize: '11px', fontWeight: '600', cursor: 'pointer', fontFamily: 'Quicksand' }}>{showAddCaregiver ? 'Cancel' : '+ Add'}</button>}
+                        </div>
                     </div>
-                    {showAddCaregiver && (
+                    {showCaregivers && showAddCaregiver && (
                         <div style={{ background: '#f7fafc', borderRadius: '6px', padding: '8px', marginBottom: '8px' }}>
                             <input type="text" placeholder="Name" value={newCaregiver.name} onChange={e => setNewCaregiver(p => ({ ...p, name: e.target.value }))} style={{ width: '100%', padding: '6px', marginBottom: '5px', border: '1.5px solid #e2e8f0', borderRadius: '5px', fontSize: '12px', boxSizing: 'border-box', fontFamily: 'Quicksand' }} />
                             <input type="text" placeholder="2-Letter Code (e.g. AL)" value={newCaregiver.code} onChange={e => setNewCaregiver(p => ({ ...p, code: e.target.value.toUpperCase().slice(0,2) }))} maxLength={2} style={{ width: '100%', padding: '6px', marginBottom: '5px', border: '1.5px solid #e2e8f0', borderRadius: '5px', fontSize: '12px', boxSizing: 'border-box', fontFamily: 'Quicksand' }} />
@@ -262,7 +266,7 @@
                             <button onClick={addCaregiver} disabled={!newCaregiver.name || !newCaregiver.code} style={{ width: '100%', background: newCaregiver.name && newCaregiver.code ? '#48bb78' : '#cbd5e0', color: 'white', border: 'none', borderRadius: '5px', padding: '6px', fontSize: '11px', fontWeight: '600', cursor: newCaregiver.name && newCaregiver.code ? 'pointer' : 'not-allowed', fontFamily: 'Quicksand' }}>Add Caregiver</button>
                         </div>
                     )}
-                    {!showAddCaregiver && (
+                    {showCaregivers && !showAddCaregiver && (
                         <div style={{ display: 'flex', flexDirection: 'column', gap: '5px' }}>
                             {caregivers.map(cg => (
                                 <div key={cg.code} style={{ display: 'flex', alignItems: 'center', gap: '6px', background: '#f7fafc', borderRadius: '6px', padding: '5px 7px' }}>
