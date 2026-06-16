@@ -118,7 +118,8 @@
         const daysUntilSunday = (7 - today.getDay()) % 7;
         const upcomingSunday  = new Date(today); upcomingSunday.setDate(today.getDate() + daysUntilSunday);
         const formatDate        = d => d.toISOString().split('T')[0];
-        const formatDisplayDate = d => `${d.toLocaleDateString('en-US', { month: 'short' })} ${d.getDate()}`;
+        const formatDisplayDate  = d => `${d.toLocaleDateString('en-US', { month: 'short' })} ${d.getDate()}`;
+        const formatReminderDate = d => d.toLocaleDateString('en-US', { weekday: 'long', month: 'short', day: 'numeric' });
 
         const assignCaregiver = (sunday, code) => { updateSchedule({ ...schedule, [formatDate(sunday)]: code }); setSelectedSunday(null); };
         const clearAssignment = (sunday) => { const next = { ...schedule }; delete next[formatDate(sunday)]; updateSchedule(next); };
@@ -216,8 +217,7 @@
                                             <span style={{ fontSize: '7px', fontWeight: '700', color: '#9b2c2c' }}>?</span>
                                         </div>
                                         <div style={{ flex: 1 }}>
-                                            <span style={{ fontSize: '12px', fontWeight: '700', color: '#9b2c2c', letterSpacing: '0.5px' }}>UNASSIGNED</span>
-                                            <span style={{ fontSize: '13px', color: '#9b2c2c', marginLeft: '6px', opacity: 0.9 }}>{formatDisplayDate(sunday)}</span>
+                                            <span style={{ fontSize: '12px', fontWeight: '700', color: '#9b2c2c', letterSpacing: '0.5px' }}>UNASSIGNED - {formatReminderDate(sunday)}</span>
                                         </div>
                                     </div>
                                 );
@@ -227,8 +227,7 @@
                                     <div key={dateKey} style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '6px 8px', borderRadius: '7px', background: `${cg.color}15`, border: `1px solid ${cg.color}30` }}>
                                         <div style={{ width: '20px', height: '20px', borderRadius: '4px', background: cg.color, display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'white', fontSize: '8px', fontWeight: '700', flexShrink: 0 }}>{cg.code}</div>
                                         <div style={{ flex: 1 }}>
-                                            <span style={{ fontSize: '12px', fontWeight: '600', color: '#2d3748' }}>{cg.name}</span>
-                                            <span style={{ fontSize: '13px', color: '#4a5568', marginLeft: '6px' }}>{formatDisplayDate(sunday)}</span>
+                                            <span style={{ fontSize: '12px', fontWeight: '600', color: '#2d3748' }}>{cg.name} - {formatReminderDate(sunday)}</span>
                                         </div>
                                         <button onClick={() => sendReminder(sunday)} disabled={isSending} style={{ background: justSent ? '#48bb78' : cg.color, color: 'white', border: 'none', borderRadius: '6px', padding: '4px 9px', fontSize: '11px', fontWeight: '600', cursor: isSending ? 'wait' : 'pointer', whiteSpace: 'nowrap', fontFamily: 'Quicksand', transition: 'background 0.2s' }}>
                                             {isSending ? '...' : justSent ? '✓ Sent' : '📱 Remind'}
