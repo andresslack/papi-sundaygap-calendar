@@ -9,7 +9,6 @@
     <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
     <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
     <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-database.js"></script>
-    <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-auth.js"></script>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Quicksand:wght@400;500;600;700&display=swap" rel="stylesheet">
@@ -81,26 +80,20 @@
         useEffect(() => { setFirebaseAvailable(window.firebaseReady === true); }, []);
         useEffect(() => {
             if (!firebaseAvailable) { setLoaded(true); return; }
-            let cgRef, scRef;
-            const setupListeners = () => {
-                cgRef = firebase.database().ref('caregivers');
-                scRef = firebase.database().ref('schedule');
-                cgRef.on('value', snap => {
-                    const data = snap.val();
-                    if (data) { setCaregivers(data.map(c => { const m = { phone: '', smsOptIn: false, consentStatus: 'none', ...c }; if (!c.consentStatus) m.consentStatus = c.smsOptIn ? 'confirmed' : 'none'; m.smsOptIn = m.consentStatus === 'confirmed'; return m; })); }
-                    else { cgRef.set(initialCaregivers); }
-                    setLoaded(true);
-                }, () => setLoaded(true));
-                scRef.on('value', snap => {
-                    let s = snap.val() || {};
-                    if (!s['2026-04-12']) { s['2026-04-12'] = 'AN'; scRef.set(s); }
-                    setSchedule(s);
-                });
-            };
-            try {
-                firebase.auth().signInAnonymously().then(setupListeners).catch(err => { console.error('Auth error:', err); setLoaded(true); });
-            } catch(err) { console.error('Auth init error:', err); setLoaded(true); }
-            return () => { if (cgRef) cgRef.off(); if (scRef) scRef.off(); };
+            const cgRef = firebase.database().ref('caregivers');
+            const scRef = firebase.database().ref('schedule');
+            cgRef.on('value', snap => {
+                const data = snap.val();
+                if (data) { setCaregivers(data.map(c => { const m = { phone: '', smsOptIn: false, consentStatus: 'none', ...c }; if (!c.consentStatus) m.consentStatus = c.smsOptIn ? 'confirmed' : 'none'; m.smsOptIn = m.consentStatus === 'confirmed'; return m; })); }
+                else { cgRef.set(initialCaregivers); }
+                setLoaded(true);
+            });
+            scRef.on('value', snap => {
+                let s = snap.val() || {};
+                if (!s['2026-04-12']) { s['2026-04-12'] = 'AN'; scRef.set(s); }
+                setSchedule(s);
+            });
+            return () => { cgRef.off(); scRef.off(); };
         }, [firebaseAvailable]);
 
         const updateCaregivers = (next) => { setCaregivers(next); if (firebaseAvailable) firebase.database().ref('caregivers').set(next); };
