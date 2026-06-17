@@ -25,7 +25,12 @@ GitHub: https://github.com/andresslack/papi-sundaygap-calendar
 Branch: main
 Files:
 - index.html — main app
-- netlify/functions/send-sms.js — Twilio SMS serverless function
+- netlify/functions/send-sms.js — Twilio SMS serverless function (reminders + confirmation)
+- netlify/functions/sms-reply.js — Twilio inbound webhook (YES/STOP/HELP → consent state)
+- privacy-policy.html — privacy policy (with SMS consent section + screenshot)
+- opt-in.html — public SMS opt-in / CTA disclosure page (referenced in A2P campaign for CTA verification)
+- terms.html — terms of service
+- twilio-a2p-resubmission.md — copy-paste field values for the A2P campaign form
 - HANDOFF.md — this file
 
 ---
@@ -44,8 +49,10 @@ No build step needed - Netlify serves index.html directly.
 | TWILIO_ACCOUNT_SID    | (stored in Netlify environment variables) |
 | TWILIO_AUTH_TOKEN     | (stored as secret in Netlify)  |
 | TWILIO_PHONE_NUMBER   | +18135780433                   |
+| TWILIO_MESSAGING_SERVICE_SID | SID of the "Low Volume Mixed A2P Messaging Service" (starts with MG...). Optional but recommended: when set, send-sms.js routes through the Messaging Service (which holds the approved A2P campaign) instead of the raw From number. If unset, it falls back to TWILIO_PHONE_NUMBER. |
 
 ⚠️ PENDING: Regenerate Twilio Auth Token at console.twilio.com and update Netlify env variable.
+⚠️ TO ADD: TWILIO_MESSAGING_SERVICE_SID in Netlify (Messaging → Services → copy the MG... SID), then redeploy.
 
 ---
 
