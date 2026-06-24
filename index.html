@@ -243,8 +243,8 @@
                                         <div style={{ flex: 1 }}>
                                             <span style={{ fontSize: '12px', fontWeight: '600', color: '#2d3748' }}>{cg.name} - {formatReminderDate(sunday)}</span>
                                             {toArr(reminderLog[dateKey]).length > 0 && (
-                                                <div style={{ fontSize: '9px', color: '#718096', marginTop: '2px' }}>
-                                                    Reminders sent: {toArr(reminderLog[dateKey]).map(d => `[${d}]`).join(' ')}
+                                                <div style={{ fontSize: '11px', marginTop: '2px' }}>
+                                                    <span style={{ color: '#718096' }}>Reminders sent: </span>{toArr(reminderLog[dateKey]).map((d, i) => <span key={i} style={{ color: '#2d3748', fontWeight: '600' }}>{i > 0 ? ' ' : ''}[{d}]</span>)}
                                                 </div>
                                             )}
                                         </div>
