@@ -147,7 +147,7 @@
             const firstName = cg.name.split(' ')[0];
             const display   = `${sunday.getMonth() + 1}/${sunday.getDate()}`;
             const msg = `Hi ${firstName}, reminder that you are scheduled for Papi's care this Sunday ${display} from 6:00-8:00 PM. App: https://papi-sundaygap.netlify.app`;
-            if (!confirm(`Send to ${cg.name} (${toDisplay(cg.phone)})?\n\n"${msg}"`)) return;
+            if (!confirm(`Send to ${cg.name} ${toDisplay(cg.phone)}?\n\n"${msg}"`)) return;
             setSendingDate(dateKey);
             try {
                 const res    = await fetch('/.netlify/functions/send-sms', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ to: cg.phone, message: msg }) });
