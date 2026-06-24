@@ -77,6 +77,7 @@
         const [sendingDate,       setSendingDate]       = useState(null);
         const [sentDates,         setSentDates]         = useState({});
         const [showCaregivers,    setShowCaregivers]    = useState(false);
+        const [reminderLog,       setReminderLog]       = useState({});
 
         useEffect(() => { setFirebaseAvailable(window.firebaseReady === true); }, []);
         useEffect(() => {
@@ -94,11 +95,15 @@
                 if (!s['2026-04-12']) { s['2026-04-12'] = 'AN'; scRef.set(s); }
                 setSchedule(s);
             });
-            return () => { cgRef.off(); scRef.off(); };
+            const rlRef = firebase.database().ref('reminderLog');
+            rlRef.on('value', snap => { setReminderLog(snap.val() || {}); });
+            return () => { cgRef.off(); scRef.off(); rlRef.off(); };
         }, [firebaseAvailable]);
 
         const updateCaregivers = (next) => { setCaregivers(next); if (firebaseAvailable) firebase.database().ref('caregivers').set(next); };
         const updateSchedule   = (next) => { setSchedule(next);   if (firebaseAvailable) firebase.database().ref('schedule').set(next); };
+        const updateReminderLog = (next) => { setReminderLog(next); if (firebaseAvailable) firebase.database().ref('reminderLog').set(next); };
+        const toArr = (v) => !v ? [] : Array.isArray(v) ? v : Object.values(v);
 
         const getSundays = () => {
             const today = new Date(); today.setHours(0,0,0,0);
@@ -147,13 +152,21 @@
             const firstName = cg.name.split(' ')[0];
             const display   = `${sunday.getMonth() + 1}/${sunday.getDate()}`;
             const msg = `Hi ${firstName}, reminder that you are scheduled for Papi's care this Sunday ${display} from 6:00-8:00 PM. App: https://papi-sundaygap.netlify.app`;
+            const alreadySent = toArr(reminderLog[dateKey]).length > 0;
+            if (alreadySent && !confirm(`A reminder has already been sent for this day. Send anyway?`)) return;
             if (!confirm(`Send to ${cg.name} ${toDisplay(cg.phone)}?\n\n"${msg}"`)) return;
             setSendingDate(dateKey);
             try {
                 const res    = await fetch('/.netlify/functions/send-sms', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ to: cg.phone, message: msg }) });
                 const result = await res.json();
-                if (res.ok) { setSentDates(prev => ({ ...prev, [dateKey]: true })); setTimeout(() => setSentDates(prev => { const n = {...prev}; delete n[dateKey]; return n; }), 4000); }
-                else { alert(`Failed: ${result.error}`); }
+                if (res.ok) {
+                    setSentDates(prev => ({ ...prev, [dateKey]: true }));
+                    setTimeout(() => setSentDates(prev => { const n = {...prev}; delete n[dateKey]; return n; }), 4000);
+                    const now = new Date();
+                    const ddmmm = `${String(now.getDate()).padStart(2,'0')}-${now.toLocaleDateString('en-US',{month:'short'})}`;
+                    const prevEntries = toArr(reminderLog[dateKey]);
+                    updateReminderLog({ ...reminderLog, [dateKey]: [...prevEntries, ddmmm] });
+                } else { alert(`Failed: ${result.error}`); }
             } catch { alert('Could not reach messaging service. Try again.'); }
             finally { setSendingDate(null); }
         };
@@ -229,9 +242,14 @@
                                         <div style={{ width: '20px', height: '20px', borderRadius: '4px', background: cg.color, display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'white', fontSize: '8px', fontWeight: '700', flexShrink: 0 }}>{cg.code}</div>
                                         <div style={{ flex: 1 }}>
                                             <span style={{ fontSize: '12px', fontWeight: '600', color: '#2d3748' }}>{cg.name} - {formatReminderDate(sunday)}</span>
+                                            {toArr(reminderLog[dateKey]).length > 0 && (
+                                                <div style={{ fontSize: '9px', color: '#718096', marginTop: '2px' }}>
+                                                    Reminders sent: {toArr(reminderLog[dateKey]).map(d => `[${d}]`).join(' ')}
+                                                </div>
+                                            )}
                                         </div>
                                         <button onClick={() => sendReminder(sunday)} disabled={isSending} style={{ background: justSent ? '#48bb78' : cg.color, color: 'white', border: 'none', borderRadius: '6px', padding: '4px 9px', fontSize: '11px', fontWeight: '600', cursor: isSending ? 'wait' : 'pointer', whiteSpace: 'nowrap', fontFamily: 'Quicksand', transition: 'background 0.2s' }}>
-                                            {isSending ? '...' : justSent ? '✓ Sent' : '📱 Remind'}
+                                            {isSending ? '...' : justSent ? '✓ Sent' : '📱 Send'}
                                         </button>
                                     </div>
                                 );
