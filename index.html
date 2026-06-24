@@ -298,7 +298,7 @@
                                                 <button onClick={() => savePhone(cg.code)} style={{ background: '#48bb78', color: 'white', border: 'none', borderRadius: '4px', padding: '2px 6px', fontSize: '10px', fontWeight: '600', cursor: 'pointer' }}>✓</button>
                                                 <button onClick={() => { setEditingPhoneFor(null); setEditOptIn(false); }} style={{ background: '#e2e8f0', color: '#4a5568', border: 'none', borderRadius: '4px', padding: '2px 6px', fontSize: '10px', fontWeight: '600', cursor: 'pointer' }}>✕</button>
                                             </div>
-                                            <div style={{ fontSize: '9px', color: '#718096', marginTop: '4px', lineHeight: '1.4', padding: '4px 6px', background: '#f7fafc', borderRadius: '4px' }}>Changing the number resets consent. After saving, tap "Send confirm" — the caregiver must reply YES.</div>
+                                            <div style={{ fontSize: '9px', color: '#718096', marginTop: '4px', lineHeight: '1.4', padding: '4px 6px', background: '#f7fafc', borderRadius: '4px' }}>Changing the number resets consent. After saving, tap "Send request to accept SMS" — the caregiver must reply YES.</div>
                                             </>
                                         ) : (
                                             <div style={{ fontSize: '10px', color: cg.phone ? '#718096' : '#a0aec0' }}>
@@ -309,7 +309,7 @@
                                                     return <span style={{ marginLeft: '5px', fontSize: '9px', fontWeight: '600', color: badge[1] }}>{badge[0]}</span>;
                                                 })()}
                                                 {cg.phone && (cg.consentStatus || 'none') !== 'confirmed' && (
-                                                    <button onClick={() => sendConfirmation(cg.code)} disabled={sendingDate === 'confirm-' + cg.code} style={{ marginLeft: '6px', background: '#667eea', color: 'white', border: 'none', borderRadius: '4px', padding: '1px 6px', fontSize: '9px', fontWeight: '600', cursor: 'pointer', fontFamily: 'Quicksand' }}>{sendingDate === 'confirm-' + cg.code ? '...' : (cg.consentStatus === 'pending' ? 'Resend' : 'Send confirm')}</button>
+                                                    <button onClick={() => sendConfirmation(cg.code)} disabled={sendingDate === 'confirm-' + cg.code} style={{ marginLeft: '6px', background: '#667eea', color: 'white', border: 'none', borderRadius: '4px', padding: '1px 6px', fontSize: '9px', fontWeight: '600', cursor: 'pointer', fontFamily: 'Quicksand' }}>{sendingDate === 'confirm-' + cg.code ? '...' : (cg.consentStatus === 'pending' ? 'Resend request to accept SMS' : 'Send request to accept SMS')}</button>
                                                 )}
                                             </div>
                                         )}
